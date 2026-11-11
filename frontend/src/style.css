@@ -113,3 +113,8 @@ select {
 main:has(.builder-comparing) {
   max-width: 90rem;
 }
+
+.validation-status li {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

@@ -105,17 +105,26 @@ func render(ctx context.Context, chartDir string, req renderRequest) (string, er
 	return result.(*release.Release).Manifest, nil
 }
 
+func decodeRenderRequest(w http.ResponseWriter, r *http.Request) (renderRequest, bool) {
+	var req renderRequest
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil || decoder.Decode(new(any)) != io.EOF {
+		http.Error(w, "Invalid configuration request.", http.StatusBadRequest)
+		return req, false
+	}
+	return req, true
+}
+
 func main() {
 	chartDir := flag.String("charts", "../.runtime/charts", "directory containing the pinned Helm chart archives")
+	schemaDir := flag.String("schemas", "../.runtime/schemas", "directory containing local Kubernetes and custom resource schemas")
 	flag.Parse()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/render", func(w http.ResponseWriter, r *http.Request) {
-		var req renderRequest
-		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 64<<10))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&req); err != nil || decoder.Decode(new(any)) != io.EOF {
-			http.Error(w, "Invalid render request.", http.StatusBadRequest)
+		req, ok := decodeRenderRequest(w, r)
+		if !ok {
 			return
 		}
 		manifest, err := render(r.Context(), *chartDir, req)
@@ -125,6 +134,19 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 		if _, err := io.WriteString(w, manifest); err != nil {
+			log.Print(err)
+		}
+	})
+
+	mux.HandleFunc("POST /api/validate", func(w http.ResponseWriter, r *http.Request) {
+		req, ok := decodeRenderRequest(w, r)
+		if !ok {
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(validate(ctx, *chartDir, *schemaDir, req)); err != nil {
 			log.Print(err)
 		}
 	})

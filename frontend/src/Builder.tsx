@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { catalogs, defaultValues, dependencyHint, previewValues, type Value } from './builder-values';
 import { Preview } from './Preview';
 import { ChartComparison } from './ChartComparison';
+import { ValidationStatus } from './ValidationStatus';
 import { renderChart } from './render-chart';
 
 export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalogs; kubernetesVersion: string }) {
@@ -97,6 +98,7 @@ export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalo
         })}
       </section>
       <div className="builder-output">
+        <ValidationStatus tool={tool} kubernetesVersion={kubernetesVersion} values={currentPreview.text} />
         <label>
           Preview format
           <select value={format} onChange={event => setFormat(event.target.value === 'manifests' ? 'manifests' : 'values')}>

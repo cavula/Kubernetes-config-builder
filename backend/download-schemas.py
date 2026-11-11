@@ -7,8 +7,12 @@ from pathlib import Path
 from urllib.request import urlopen
 
 SCHEMA_DIR = Path(__file__).resolve().parents[1] / ".runtime" / "schemas"
-VERSIONS = ("1.35.0", "1.36.0", "1.37.0")
-CATALOG = "https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master"
+KUBERNETES_COMMITS = {
+    "1.35.0": "66452049f3d692768c39c797b21b793dce80314e",
+    "1.36.0": "ecf6decece6a6de25a57aad9ba90b6ce580f6f78",
+    "1.37.0": "f54c212e3a2f75d674b717a9b29052b20b60aefc",
+}
+CATALOG = "https://raw.githubusercontent.com/yannh/kubernetes-json-schema/9e1cd3c3b22e6432cbc5615a5a930f8268f14bf1"
 KUBERNETES = "https://raw.githubusercontent.com/kubernetes/kubernetes"
 NATIVE_SCHEMAS = (
     "clusterrole-rbac-v1",
@@ -17,6 +21,7 @@ NATIVE_SCHEMAS = (
     "daemonset-apps-v1",
     "deployment-apps-v1",
     "job-batch-v1",
+    "namespace-v1",
     "networkpolicy-networking-v1",
     "persistentvolumeclaim-v1",
     "role-rbac-v1",
@@ -49,7 +54,7 @@ def download_native(version, name):
 def download_crd(version):
     # The standalone catalog omits the CRD schema. Keep the official
     # Kubernetes OpenAPI definition and its reachable local references.
-    definitions = fetch(f"{KUBERNETES}/v{version}/api/openapi-spec/swagger.json")["definitions"]
+    definitions = fetch(f"{KUBERNETES}/{KUBERNETES_COMMITS[version]}/api/openapi-spec/swagger.json")["definitions"]
     root = definitions["io.k8s.apiextensions-apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition"]
     reachable = {}
 
@@ -74,8 +79,8 @@ def download_crd(version):
 
 if __name__ == "__main__":
     with ThreadPoolExecutor(max_workers=8) as workers:
-        downloads = [workers.submit(download_native, version, name) for version in VERSIONS for name in NATIVE_SCHEMAS]
-        downloads.extend(workers.submit(download_crd, version) for version in VERSIONS)
+        downloads = [workers.submit(download_native, version, name) for version in KUBERNETES_COMMITS for name in NATIVE_SCHEMAS]
+        downloads.extend(workers.submit(download_crd, version) for version in KUBERNETES_COMMITS)
         for download in downloads:
             download.result()
     print(f"Prepared Kubernetes schemas in {SCHEMA_DIR}")

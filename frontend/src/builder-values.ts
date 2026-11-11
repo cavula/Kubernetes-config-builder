@@ -1,3 +1,4 @@
+import prometheusARM64Values from '../../backend/prometheus-arm64-values.json' with { type: 'json' };
 import prometheusOptions from '../../templates/prometheus/options.json' with { type: 'json' };
 import prometheusNotes from '../../templates/prometheus/notes.json' with { type: 'json' };
 import argoOptions from '../../templates/argo-cd/options.json' with { type: 'json' };
@@ -15,11 +16,27 @@ type Option = {
   comparison?: string;
 };
 
-type Catalog = { options: Option[]; notes: { fields: Record<string, string>; dependencyHints: Partial<Record<string, string>> } };
+export type Catalog = { options: Option[]; fixedValues?: Record<string, string>; notes: { fields: Record<string, string>; dependencyHints: Partial<Record<string, string>> } };
 export const catalogs: Record<'prometheus' | 'argo-cd', Catalog> = {
-  prometheus: { options: prometheusOptions, notes: prometheusNotes },
+  prometheus: {
+    options: prometheusOptions,
+    notes: prometheusNotes,
+    // Re-evaluate these values when updating the Prometheus chart pin.
+    fixedValues: {
+      'configmapReload.prometheus.image.tag': prometheusARM64Values.configmapReload.prometheus.image.tag,
+      'alertmanager.configmapReload.image.tag': prometheusARM64Values.alertmanager.configmapReload.image.tag,
+    },
+  },
   'argo-cd': { options: argoOptions, notes: argoNotes },
 };
+
+export function catalogForChart(tool: keyof typeof catalogs, chartVersion: string): Catalog {
+  const catalog = catalogs[tool];
+  if (tool === 'prometheus' && chartVersion !== '29.45.1') {
+    return { options: catalog.options, notes: catalog.notes };
+  }
+  return catalog;
+}
 
 export function defaultValues(catalog: Catalog): Record<string, Value> {
   return Object.fromEntries(catalog.options.map(option => [option.path, option.default]));
@@ -83,6 +100,10 @@ export function previewValues(catalog: Catalog, values: Record<string, Value>) {
     } else {
       field.value = value;
     }
+  }
+
+  for (const [path, value] of Object.entries(catalog.fixedValues ?? {})) {
+    fieldAt(path).value = value;
   }
 
   const lines: string[] = [];

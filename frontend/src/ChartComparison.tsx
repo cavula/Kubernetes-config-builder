@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react';
-import { catalogs, comparisonValues, dependencyHint, previewValues, type Value } from './builder-values';
+import { comparisonValues, dependencyHint, previewValues, type Catalog, type Value } from './builder-values';
 import { Preview } from './Preview';
 import { renderChart } from './render-chart';
 
 const noNotes = new Map<number, string>();
 
-export function ChartComparison({ tool, kubernetesVersion, values }: {
-  tool: keyof typeof catalogs;
+export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
+  catalog: Catalog;
+  tool: string;
   kubernetesVersion: string;
   values: Record<string, Value>;
 }) {
-  const catalog = catalogs[tool];
   const [path, setPath] = useState(catalog.options[0].path);
   const option = catalog.options.find(entry => entry.path === path)!;
   const current = previewValues(catalog, values);

@@ -14,11 +14,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/chart/common"
+	chartvalues "helm.sh/helm/v4/pkg/chart/common/util"
 	"helm.sh/helm/v4/pkg/chart/loader"
 	release "helm.sh/helm/v4/pkg/release/v1"
 )
@@ -35,6 +37,25 @@ var charts = map[string]chartPin{
 
 //go:embed chart-checksums.txt
 var chartChecksums string
+
+//go:embed prometheus-arm64-values.json
+var prometheusARM64Values []byte
+
+func effectiveValues(req renderRequest) (common.Values, error) {
+	values, err := common.ReadValues([]byte(req.Values))
+	if err != nil {
+		return nil, err
+	}
+	// Re-evaluate this workaround when the chart pin changes.
+	if req.Tool == "prometheus" && charts[req.Tool].version == "29.45.1" {
+		overrides, err := common.ReadValues(prometheusARM64Values)
+		if err != nil {
+			return nil, err
+		}
+		return chartvalues.MergeTables(overrides, values), nil
+	}
+	return values, nil
+}
 
 func verifiedArchive(chartDir, filename string) ([]byte, error) {
 	var expected string
@@ -87,7 +108,7 @@ func render(ctx context.Context, chartDir string, req renderRequest) (string, er
 	if err != nil {
 		return "", err
 	}
-	values, err := common.ReadValues([]byte(req.Values))
+	values, err := effectiveValues(req)
 	if err != nil {
 		return "", err
 	}
@@ -102,7 +123,54 @@ func render(ctx context.Context, chartDir string, req renderRequest) (string, er
 	if err != nil {
 		return "", err
 	}
-	return result.(*release.Release).Manifest, nil
+	rendered := result.(*release.Release)
+	if req.Tool == "argo-cd" {
+		return argoCDManifests(rendered, pin.namespace), nil
+	}
+	if req.Tool == "prometheus" && pin.version == "29.45.1" {
+		return commentReloaderImages(rendered.Manifest), nil
+	}
+	return rendered.Manifest, nil
+}
+
+func commentReloaderImages(manifest string) string {
+	const image = "quay.io/prometheus-operator/prometheus-config-reloader:v0.95.2"
+	lines := strings.Split(manifest, "\n")
+	var output strings.Builder
+	for index, line := range lines {
+		if index > 0 {
+			output.WriteByte('\n')
+		}
+		key, value, _ := strings.Cut(strings.TrimSpace(line), ":")
+		if key == "image" && strings.Trim(strings.TrimSpace(value), "\"'") == image {
+			indent := line[:len(line)-len(strings.TrimLeft(line, " "))]
+			fmt.Fprintf(&output, "%s# v0.95.2 supplies ARM64 images. Chart 29.45.1 defaults to amd64-only v0.95.1.\n", indent)
+		}
+		output.WriteString(line)
+	}
+	return output.String()
+}
+
+func argoCDManifests(rendered *release.Release, namespace string) string {
+	var output strings.Builder
+	output.WriteString("# Apply this file with: kubectl apply --server-side -f argo-cd-manifests.yaml\n")
+	output.WriteString("# Server-side apply is required because client-side apply stores a copy in an annotation.\n")
+	output.WriteString("# Argo CD's large CRDs exceed Kubernetes' 256 KiB annotation limit.\n")
+	fmt.Fprintf(&output, "---\n# Namespace for the Argo CD workloads and Redis initialization.\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace)
+	for _, hook := range rendered.Hooks {
+		if !slices.Contains(hook.Events, release.HookPreInstall) ||
+			!strings.HasPrefix(hook.Path, "argo-cd/templates/redis-secret-init/") {
+			continue
+		}
+		output.WriteString("---\n")
+		if hook.Kind == "Job" {
+			output.WriteString("# Run this Redis initialization Job first. It creates the argocd-redis Secret required by the Argo CD workloads.\n")
+			output.WriteString("# kubectl apply submits all resources together. Dependent containers wait for the Secret before starting.\n")
+		}
+		fmt.Fprintf(&output, "# Source: %s\n%s\n", hook.Path, strings.TrimSpace(hook.Manifest))
+	}
+	output.WriteString(rendered.Manifest)
+	return output.String()
 }
 
 func decodeRenderRequest(w http.ResponseWriter, r *http.Request) (renderRequest, bool) {

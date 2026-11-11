@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
-import { catalogs, defaultValues, dependencyHint, previewValues, type Value } from './builder-values';
+import { catalogForChart, defaultValues, dependencyHint, previewValues, type catalogs, type Value } from './builder-values';
 import { Preview } from './Preview';
 import { ChartComparison } from './ChartComparison';
+import { ExportActions } from './ExportActions';
 import { ValidationStatus } from './ValidationStatus';
 import { renderChart } from './render-chart';
 
-export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalogs; kubernetesVersion: string }) {
-  const catalog = catalogs[tool];
+export function Builder({ tool, chartVersion, kubernetesVersion }: {
+  tool: keyof typeof catalogs;
+  chartVersion: string;
+  kubernetesVersion: string;
+}) {
+  const catalog = catalogForChart(tool, chartVersion);
   const [{ current, previous }, setValues] = useState(() => {
     const defaults = defaultValues(catalog);
     return { current: defaults, previous: defaults };
@@ -14,22 +19,25 @@ export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalo
 
   const [format, setFormat] = useState<'values' | 'manifests'>('values');
   const [compare, setCompare] = useState(false);
-  const [manifest, setManifest] = useState({ current: '', previous: '', error: '' });
+  const [manifest, setManifest] = useState({ key: '', current: '', previous: '', error: '' });
   const currentPreview = previewValues(catalog, current);
+  const renderKey = JSON.stringify([tool, kubernetesVersion, currentPreview.text]);
 
   useEffect(() => {
-    if (format !== 'manifests' || compare) return;
+    if (format !== 'manifests') return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
         const text = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
         if (!controller.signal.aborted) {
-          setManifest(({ current }) => ({ current: text, previous: current || text, error: '' }));
+          setManifest(({ current }) => ({ key: renderKey, current: text, previous: current || text, error: '' }));
         }
       } catch (error) {
         if (!controller.signal.aborted) {
           setManifest(previous => ({
             ...previous,
+            key: renderKey,
+            current: '',
             error: error instanceof Error ? error.message : 'Could not render the chart.',
           }));
         }
@@ -39,11 +47,14 @@ export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalo
       clearTimeout(timer);
       controller.abort();
     };
-  }, [compare, format, tool, kubernetesVersion, currentPreview.text]);
+  }, [format, tool, kubernetesVersion, currentPreview.text, renderKey]);
 
   function update(path: string, value: Value) {
     setValues(({ current }) => ({ current: { ...current, [path]: value }, previous: current }));
   }
+
+  const currentManifest = manifest.key === renderKey ? manifest.current : '';
+  const exportText = format === 'values' ? currentPreview.text : currentManifest;
 
   return (
     <div className={compare ? "builder builder-comparing" : "builder"}>
@@ -106,17 +117,22 @@ export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalo
             <option value="manifests">Kubernetes manifests</option>
           </select>
         </label>
+        <ExportActions
+          key={`${tool}-${format}`}
+          text={exportText}
+          filename={`${tool}-${format}.yaml`}
+        />
         <button type="button" aria-pressed={compare} onClick={() => setCompare(open => !open)}>
           {compare ? 'Close comparison' : 'Compare Helm values and YAML'}
         </button>
         {compare ? (
-          <ChartComparison tool={tool} kubernetesVersion={kubernetesVersion} values={current} />
+          <ChartComparison catalog={catalog} tool={tool} kubernetesVersion={kubernetesVersion} values={current} />
         ) : format === 'values' ? (
           <Preview current={currentPreview} previous={previewValues(catalog, previous)} />
         ) : (
           <>
-            {manifest.error && <p role="alert">{manifest.error}</p>}
-            <Preview current={{ text: manifest.current, notes: new Map() }} previous={{ text: manifest.previous, notes: new Map() }} />
+            {manifest.key === renderKey && manifest.error && <p role="alert">{manifest.error}</p>}
+            <Preview current={{ text: currentManifest, notes: new Map() }} previous={{ text: manifest.previous, notes: new Map() }} />
           </>
         )}
       </div>

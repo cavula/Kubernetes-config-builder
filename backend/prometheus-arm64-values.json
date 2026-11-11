@@ -1,0 +1,16 @@
+{
+  "configmapReload": {
+    "prometheus": {
+      "image": {
+        "tag": "v0.95.2"
+      }
+    }
+  },
+  "alertmanager": {
+    "configmapReload": {
+      "image": {
+        "tag": "v0.95.2"
+      }
+    }
+  }
+}

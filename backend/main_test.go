@@ -106,3 +106,55 @@ func TestApprovedOptionsAffectPinnedCharts(t *testing.T) {
 		})
 	}
 }
+
+func TestArgoCDPlainYAMLIncludesRedisInitialization(t *testing.T) {
+	chartDir := pinnedChartFixtures(t)
+	for _, version := range []string{"1.35", "1.36", "1.37"} {
+		t.Run(version, func(t *testing.T) {
+			output, err := render(context.Background(), chartDir, renderRequest{Tool: "argo-cd", KubernetesVersion: version})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.HasPrefix(output, "# Apply this file with: kubectl apply --server-side -f argo-cd-manifests.yaml\n") ||
+				!strings.Contains(strings.SplitN(output, "\n---\n", 2)[0], "256 KiB annotation limit") {
+				t.Fatal("export must lead with server-side apply instructions and the reason")
+			}
+			firstWorkload := strings.Index(output, "\nkind: Deployment\n")
+			if firstWorkload == -1 {
+				t.Fatal("export lacks Argo CD workloads")
+			}
+			bootstrap := output[:firstWorkload]
+			for _, document := range []string{
+				"kind: Namespace\nmetadata:\n  name: argocd",
+				"# Source: argo-cd/templates/redis-secret-init/serviceaccount.yaml",
+				"# Source: argo-cd/templates/redis-secret-init/role.yaml",
+				"# Source: argo-cd/templates/redis-secret-init/rolebinding.yaml",
+				"# Source: argo-cd/templates/redis-secret-init/job.yaml\napiVersion: batch/v1\nkind: Job",
+				"# Run this Redis initialization Job first.",
+			} {
+				if !strings.Contains(bootstrap, document) {
+					t.Errorf("export is missing bootstrap content %q before workloads", document)
+				}
+			}
+		})
+	}
+}
+
+func TestPrometheusExportUsesARM64ReloaderForBothWorkloads(t *testing.T) {
+	output, err := render(context.Background(), pinnedChartFixtures(t), renderRequest{
+		Tool: "prometheus", KubernetesVersion: "1.37",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, source := range []string{"prometheus/templates/deploy.yaml", "prometheus/charts/alertmanager/templates/statefulset.yaml"} {
+		_, document, found := strings.Cut(output, "# Source: "+source+"\n")
+		document, _, _ = strings.Cut(document, "\n---")
+		if !found ||
+			!strings.Contains(document, "quay.io/prometheus-operator/prometheus-config-reloader:v0.95.2") ||
+			strings.Contains(document, "prometheus-config-reloader:v0.95.1") ||
+			!strings.Contains(document, "# v0.95.2 supplies ARM64 images.") {
+			t.Errorf("%s is missing the documented ARM64 image override", source)
+		}
+	}
+}

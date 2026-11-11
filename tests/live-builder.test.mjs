@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { catalogs, defaultValues, dependencyHint, previewValues } from '../frontend/src/builder-values.ts';
+import { catalogForChart, catalogs, defaultValues, dependencyHint, previewValues } from '../frontend/src/builder-values.ts';
 
 const edits = {
   prometheus: ['30s', '7d', false, '4Gi', { requests: { cpu: '50m', memory: '64Mi' } }, false, false],
@@ -50,4 +50,21 @@ test('disabling persistence removes the size field and uses the catalog dependen
   values[size.requires] = false;
   assert.equal(dependencyHint(catalog, size, values), catalog.notes.dependencyHints[size.path]);
   assert.doesNotMatch(previewValues(catalog, values).text, /size:/);
+});
+
+test('Prometheus Helm values preserve both documented ARM64 reloader tags', () => {
+  const catalog = catalogForChart('prometheus', '29.45.1');
+  const { text, fieldLines, notes } = previewValues(catalog, defaultValues(catalog));
+  const lines = text.split('\n');
+  for (const path of ['configmapReload.prometheus.image.tag', 'alertmanager.configmapReload.image.tag']) {
+    const line = fieldLines.get(path);
+    assert.ok(line, path);
+    assert.equal(lines[line - 1].trim(), 'tag: "v0.95.2"');
+    assert.match(notes.get(line), /ARM64.*v0\.95\.1/);
+  }
+});
+
+test('the ARM64 workaround is scoped to Prometheus chart 29.45.1', () => {
+  const catalog = catalogForChart('prometheus', '30.0.0');
+  assert.doesNotMatch(previewValues(catalog, defaultValues(catalog)).text, /v0\.95\.2/);
 });

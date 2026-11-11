@@ -57,8 +57,12 @@ jobs:
               esac
               archive=$(awk -v prefix="$tool-" 'index($2, prefix) == 1 { print $2 }' backend/chart-checksums.txt)
               chart=".runtime/charts/$archive"
-              helm lint "$chart" --namespace "$namespace" --kube-version "$version"
-              helm template "$tool" "$chart" --namespace "$namespace" --kube-version "$version" --include-crds --no-hooks |
+              values=()
+              if [[ "$archive" == prometheus-29.45.1.tgz ]]; then
+                values=(-f backend/prometheus-arm64-values.json)
+              fi
+              helm lint "$chart" --namespace "$namespace" --kube-version "$version" "${values[@]}"
+              helm template "$tool" "$chart" --namespace "$namespace" --kube-version "$version" --include-crds "${values[@]}" |
                 kubeconform -strict -summary -kubernetes-version "$version" -schema-location .runtime/schemas
             done
           done

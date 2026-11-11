@@ -83,8 +83,8 @@ Spec driven development. Every feature starts as a written spec with clear input
 
 **Cluster and tool selection**
 
-- [ ] User can select K3s and a Kubernetes version.
-- [ ] User can select Prometheus or Argo CD.
+- [x] User can select K3s and a Kubernetes version.
+- [x] User can select Prometheus or Argo CD.
 
 **Live builder**
 
@@ -95,23 +95,23 @@ Spec driven development. Every feature starts as a written spec with clear input
 
 **YAML and Helm**
 
-- [ ] A switch shows the same setup as plain YAML or as Helm values.
+- [x] A switch shows the same setup as plain YAML or as Helm values.
 - [ ] A side by side view shows which Helm value produced which YAML lines.
 
 **Validation**
 
-- [ ] Generated code passes kubeconform and Helm lint with zero errors.
+- [x] Generated code passes kubeconform and Helm lint with zero errors.
 - [ ] Generated code deploys cleanly to a fresh K3s cluster.
 - [ ] A version mismatch between tool and Kubernetes shows a clear warning.
 
 **Export**
 
-- [ ] User can download the file or copy it with one click.
+- [x] User can download the file or copy it with one click.
 
 **Security**
 
 - [ ] Dependency and container scans show no high or critical issues.
-- [ ] Generated configs use secure defaults, such as no privileged containers unless the user asks.
+- [x] Generated configs use secure defaults, such as no privileged containers unless the user asks.
 
 ## Phases
 
@@ -166,3 +166,11 @@ This file and /specs are the single source of truth. Chat instructions never ove
 | 2026-11-11 | Approved all five specs. Add Prometheus scrape interval and Argo CD server service type (ClusterIP or NodePort). Begin development with cluster and tool selection. | Pending spec and options approval | Specs, live builder |
 | 2026-11-11 | Verified Kubernetes minors and chart and runtime pins against official sources. [K3s stable channel](https://raw.githubusercontent.com/k3s-io/k3s/main/channel.yaml), [K3s releases](https://github.com/k3s-io/k3s/releases), [Prometheus 29.45.1 chart](https://github.com/prometheus-community/helm-charts/tree/prometheus-29.45.1/charts/prometheus), [Argo CD 10.17.1 chart](https://github.com/argoproj/argo-helm/tree/argo-cd-10.17.1/charts/argo-cd), [Go 1.27.4](https://go.dev/doc/devel/release#go1.27.4), [Node.js 26.13.1 LTS](https://nodejs.org/uk/blog/release/v26.13.1). | Planning verification | Release catalog and toolchain |
 | 2026-11-11 | Pin Node.js 26.13.1 in root and frontend version files and enforce the exact version during dependency installation. | Frontend-only version file and semver range | Local development |
+| 2026-11-11 | Override `configmapReload.prometheus.image.tag` and `alertmanager.configmapReload.image.tag` to v0.95.2 for Prometheus chart 29.45.1. [v0.95.1 image index](https://quay.io/v2/prometheus-operator/prometheus-config-reloader/manifests/sha256:39bdbade0c64f7c38bb6d18d6f602b14ad489bc189b709dc9266b49e6647aac1) lists only linux/amd64 and attestations. [v0.95.2 image index](https://quay.io/v2/prometheus-operator/prometheus-config-reloader/manifests/sha256:cc74ddedad4ab1c49446971f6d51302ad4303d8660a2018af925c7f62c114304) includes linux/arm64. Check the upstream image index when changing the chart pin and remove the override once the chart defaults support ARM64. | Reloader tag v0.95.1 from the pinned chart and Alertmanager dependency | Helm values, plain YAML, CI, K3s |
+| 2026-11-11 | Include the Argo CD namespace and the pinned chart’s Redis pre-install Job and permissions in plain YAML. Apply with kubectl server-side apply to support the chart’s large CRDs. | Helm-only Redis initialization in the rendered release | YAML rendering, export, local deploy checks |
+| 2026-11-11 | Keep section explanations and conditional control hints in chart notes. Run live builder and selection tests together under npm test. | Generic comments and UI-owned storage hint | Builder, tests |
+| 2026-11-11 | Fetch pinned charts with the setup script and verify archive SHA256 before loading. Require fixtures for Go render tests by default, with an explicit local skip flag. | Unverified archives and implicit fixture skips | Rendering, setup, Go tests |
+| 2026-11-11 | Compare a selected Helm option by rendering its current and alternate values with the same chart and Kubernetes target. Preserve the primary format for copy and download. | Preview-only format switch | Comparison, export |
+| 2026-11-11 | Run Helm lint and strict kubeconform offline on edits. Report missing tools or schemas as incomplete. Run both validators and the frontend and Go tests on every push. Include chart hooks in the CI manifest check. | Manual checks and hook-free CI validation | Validation, CI |
+| 2026-11-11 | Pin the [schema catalog](https://github.com/yannh/kubernetes-json-schema/commit/9e1cd3c3b22e6432cbc5615a5a930f8268f14bf1) and the Kubernetes OpenAPI definitions for [1.35](https://github.com/kubernetes/kubernetes/commit/66452049f3d692768c39c797b21b793dce80314e), [1.36](https://github.com/kubernetes/kubernetes/commit/ecf6decece6a6de25a57aad9ba90b6ce580f6f78), and [1.37](https://github.com/kubernetes/kubernetes/commit/f54c212e3a2f75d674b717a9b29052b20b60aefc) to commits. | Mutable schema catalog branch and release-tag references | Offline validation, CI |
+| 2026-11-11 | Run deployment checks in isolated k3d clusters for K3s 1.35.10, 1.36.6, and 1.37.2 using project-local kubeconfigs. Put the required server-side apply command and CRD annotation limit at the top of the Argo CD YAML. | Single-minor live checks and apply instructions only in documentation | K3s tests, Argo CD export |

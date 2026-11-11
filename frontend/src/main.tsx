@@ -39,7 +39,7 @@ function App() {
         </label>
       </section>
       <p aria-live="polite">{configuration.tool.name} chart <strong>{configuration.tool.chartVersion}</strong></p>
-      <Builder key={configuration.tool.id} tool={configuration.tool.id} kubernetesVersion={configuration.kubernetesVersion} />
+      <Builder key={configuration.tool.id} tool={configuration.tool.id} chartVersion={configuration.tool.chartVersion} kubernetesVersion={configuration.kubernetesVersion} />
     </main>
   );
 }

@@ -17,7 +17,14 @@
     "server.resources.requests.memory": "Memory request for this container, expressed as a Kubernetes quantity.",
     "server.resources.limits": "Upper bounds Kubernetes enforces for this container.",
     "server.resources.limits.cpu": "CPU limit for this container, expressed in cores or millicores.",
-    "server.resources.limits.memory": "Memory limit for this container, expressed as a Kubernetes quantity."
+    "server.resources.limits.memory": "Memory limit for this container, expressed as a Kubernetes quantity.",
+    "configmapReload": "Configure the sidecar that reloads Prometheus when its configuration changes.",
+    "configmapReload.prometheus": "Configure the Prometheus server configuration reloader.",
+    "configmapReload.prometheus.image": "Choose the container image for the Prometheus configuration reloader.",
+    "configmapReload.prometheus.image.tag": "Use v0.95.2 for ARM64 support. The pinned chart defaults to amd64-only v0.95.1.",
+    "alertmanager.configmapReload": "Configure the sidecar that reloads Alertmanager when its configuration changes.",
+    "alertmanager.configmapReload.image": "Choose the container image for the Alertmanager configuration reloader.",
+    "alertmanager.configmapReload.image.tag": "Use v0.95.2 for ARM64 support. The pinned chart defaults to amd64-only v0.95.1."
   },
   "dependencyHints": {
     "server.persistentVolume.size": "Enable persistent storage to set the size."

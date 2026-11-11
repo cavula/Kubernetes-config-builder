@@ -74,7 +74,15 @@ func lintChart(ctx context.Context, chartDir string, req renderRequest) *diagnos
 	if err := os.WriteFile(chartPath, archive, 0600); err != nil {
 		return &diagnostic{check, "incomplete", err.Error()}
 	}
-	if err := os.WriteFile(valuesPath, []byte(req.Values), 0600); err != nil {
+	values, err := effectiveValues(req)
+	if err != nil {
+		return &diagnostic{check, "error", err.Error()}
+	}
+	encoded, err := json.Marshal(values)
+	if err != nil {
+		return &diagnostic{check, "incomplete", err.Error()}
+	}
+	if err := os.WriteFile(valuesPath, encoded, 0600); err != nil {
 		return &diagnostic{check, "incomplete", err.Error()}
 	}
 	output, err := exec.CommandContext(ctx, helm, "lint", chartPath, "--values", valuesPath,

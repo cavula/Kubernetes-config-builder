@@ -14,7 +14,7 @@ A configuration context with platform, Kubernetes minor, tool, and its chart pin
 
 ## Acceptance criteria
 
-- [ ] Each of the six tool and Kubernetes minor combinations opens its builder with the appropriate chart and defaults.
-- [ ] Selecting the other tool replaces the active configuration with that tool’s defaults. The Kubernetes selection stays in place.
-- [ ] Users can inspect the chart pin. The selector offers exactly one chart per tool.
-- [ ] Selection works without a cluster connection and rejects unsupported platform, version, and tool identifiers.
+- [x] Each of the six tool and Kubernetes minor combinations opens its builder with the appropriate chart and defaults.
+- [x] Selecting the other tool replaces the active configuration with that tool’s defaults. The Kubernetes selection stays in place.
+- [x] Users can inspect the chart pin. The selector offers exactly one chart per tool.
+- [x] Selection works without a cluster connection and rejects unsupported platform, version, and tool identifiers.

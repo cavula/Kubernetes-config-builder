@@ -36,3 +36,26 @@ Install Helm and kubeconform on the backend's PATH. From the project root, prepa
 Place native schemas in the kubeconform catalog layout, such as `v1.37.0-standalone-strict/deployment-apps-v1.json`. Use version directories for 1.35.0, 1.36.0, and 1.37.0. Place custom resource schemas in `custom/<group>/<lowercase-kind>_<api-version>.json`. The CustomResourceDefinition itself requires its Kubernetes API schema, which is distinct from the schema for instances of a custom resource. [Kubeconform schema sources and layout](https://github.com/yannh/kubeconform#overriding-schemas-location)
 
 The builder runs validation automatically. Missing local tools or schemas appear as incomplete checks. Rendering and validation use local files and do not connect to a cluster.
+
+Argo CD plain YAML includes its namespace and the Redis initialization Job, service account, role, and role binding from the pinned chart. Apply the entire file with `kubectl apply --server-side -f argo-cd-manifests.yaml`. Server-side apply avoids the client-side annotation size limit for Argo CD’s large CRDs. Kubernetes retries the dependent containers until the Job creates the Redis Secret.
+
+## Local K3s deploy checks
+
+With Docker and k3d installed, create dedicated loopback clusters and save their kubeconfigs separately. Run from the project root.
+
+```sh
+mkdir -p .runtime/k3s
+k3d cluster create kcb-test-135 --image rancher/k3s:v1.35.10-k3s1 --api-port 127.0.0.1:6551 --kubeconfig-update-default=false --kubeconfig-switch-context=false --wait
+k3d cluster create kcb-test-136 --image rancher/k3s:v1.36.6-k3s1 --api-port 127.0.0.1:6552 --kubeconfig-update-default=false --kubeconfig-switch-context=false --wait
+(umask 077; k3d kubeconfig get kcb-test-135 > .runtime/k3s/kubeconfig-135.yaml)
+(umask 077; k3d kubeconfig get kcb-test-136 > .runtime/k3s/kubeconfig-136.yaml)
+```
+
+Start the Go renderer and run the check once per tool and Kubernetes version. The check uses the renderer's YAML and waits for all Deployments, StatefulSets and DaemonSets in the tool's namespace.
+
+```sh
+./tests/check-k3s-deploy.sh 1.35 argo-cd .runtime/k3s/kubeconfig-135.yaml
+./tests/check-k3s-deploy.sh 1.35 prometheus .runtime/k3s/kubeconfig-135.yaml
+./tests/check-k3s-deploy.sh 1.36 argo-cd .runtime/k3s/kubeconfig-136.yaml
+./tests/check-k3s-deploy.sh 1.36 prometheus .runtime/k3s/kubeconfig-136.yaml
+```

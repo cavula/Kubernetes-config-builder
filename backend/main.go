@@ -1,14 +1,20 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"helm.sh/helm/v4/pkg/action"
@@ -25,6 +31,31 @@ type chartPin struct {
 var charts = map[string]chartPin{
 	"prometheus": {version: "29.45.1", namespace: "monitoring"},
 	"argo-cd":    {version: "10.17.1", namespace: "argocd"},
+}
+
+//go:embed chart-checksums.txt
+var chartChecksums string
+
+func verifiedArchive(chartDir, filename string) ([]byte, error) {
+	var expected string
+	for line := range strings.SplitSeq(chartChecksums, "\n") {
+		fields := strings.Fields(line)
+		if len(fields) == 2 && fields[1] == filename {
+			expected = fields[0]
+			break
+		}
+	}
+	if expected == "" {
+		return nil, fmt.Errorf("no pinned SHA256 checksum for %s", filename)
+	}
+	archive, err := os.ReadFile(filepath.Join(chartDir, filename))
+	if err != nil {
+		return nil, fmt.Errorf("read pinned chart %s (run backend/download-charts.sh): %w", filename, err)
+	}
+	if actual := fmt.Sprintf("%x", sha256.Sum256(archive)); actual != expected {
+		return nil, fmt.Errorf("SHA256 mismatch for %s: got %s, expected %s (run backend/download-charts.sh)", filename, actual, expected)
+	}
+	return archive, nil
 }
 
 type renderRequest struct {
@@ -48,7 +79,11 @@ func render(ctx context.Context, chartDir string, req renderRequest) (string, er
 	if err != nil {
 		return "", err
 	}
-	chart, err := loader.Load(filepath.Join(chartDir, req.Tool+"-"+pin.version+".tgz"))
+	archive, err := verifiedArchive(chartDir, req.Tool+"-"+pin.version+".tgz")
+	if err != nil {
+		return "", err
+	}
+	chart, err := loader.LoadArchive(bytes.NewReader(archive))
 	if err != nil {
 		return "", err
 	}

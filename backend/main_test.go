@@ -2,18 +2,45 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 )
 
-func TestPinnedChartsRender(t *testing.T) {
-	chartDir := "../.runtime/charts"
+func pinnedChartFixtures(t *testing.T) string {
+	t.Helper()
+	const chartDir = "../.runtime/charts"
+	if os.Getenv("KCB_SKIP_CHART_FIXTURES") == "1" {
+		t.Skip("KCB_SKIP_CHART_FIXTURES=1")
+	}
 	for tool, chart := range charts {
-		if _, err := os.Stat(filepath.Join(chartDir, tool+"-"+chart.version+".tgz")); os.IsNotExist(err) {
-			t.Skip("download the pinned charts to .runtime/charts to run rendering tests")
+		if _, err := verifiedArchive(chartDir, tool+"-"+chart.version+".tgz"); err != nil {
+			t.Fatal(err)
 		}
+	}
+	return chartDir
+}
+
+func TestRejectsInvalidPinnedArchive(t *testing.T) {
+	dir := t.TempDir()
+	filename := "prometheus-29.45.1.tgz"
+	req := renderRequest{Tool: "prometheus", KubernetesVersion: "1.37"}
+	if _, err := render(context.Background(), dir, req); !os.IsNotExist(errors.Unwrap(err)) {
+		t.Fatalf("expected missing archive error, got %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, filename), []byte("tampered archive"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := render(context.Background(), dir, req); err == nil || !strings.Contains(err.Error(), "SHA256 mismatch") {
+		t.Fatalf("expected checksum failure before Helm parses archive, got %v", err)
+	}
+}
+
+func TestPinnedChartsRender(t *testing.T) {
+	chartDir := pinnedChartFixtures(t)
+	for tool := range charts {
 		for _, version := range []string{"1.37", "1.36", "1.35"} {
 			t.Run(tool+"/"+version, func(t *testing.T) {
 				output, err := render(context.Background(), chartDir, renderRequest{Tool: tool, KubernetesVersion: version})
@@ -32,12 +59,7 @@ func TestPinnedChartsRender(t *testing.T) {
 }
 
 func TestApprovedOptionsAffectPinnedCharts(t *testing.T) {
-	chartDir := "../.runtime/charts"
-	for tool, chart := range charts {
-		if _, err := os.Stat(filepath.Join(chartDir, tool+"-"+chart.version+".tgz")); os.IsNotExist(err) {
-			t.Skip("download the pinned charts to .runtime/charts to run rendering tests")
-		}
-	}
+	chartDir := pinnedChartFixtures(t)
 	tests := []struct {
 		tool, setting, values, expected, removed string
 	}{

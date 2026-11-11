@@ -1,0 +1,9 @@
+[
+  { "path": "server.service.type", "label": "Server service type", "type": "select", "default": "ClusterIP", "choices": ["ClusterIP", "NodePort"] },
+  { "path": "server.replicas", "label": "API and UI server replicas", "type": "number", "default": 1 },
+  { "path": "repoServer.replicas", "label": "Repository server replicas", "type": "number", "default": 1 },
+  { "path": "server.resources", "label": "API and UI server CPU and memory", "type": "resources", "default": {} },
+  { "path": "repoServer.resources", "label": "Repository server CPU and memory", "type": "resources", "default": {} },
+  { "path": "server.metrics.enabled", "label": "API server metrics", "type": "boolean", "default": false },
+  { "path": "dex.enabled", "label": "Dex", "type": "boolean", "default": true }
+]

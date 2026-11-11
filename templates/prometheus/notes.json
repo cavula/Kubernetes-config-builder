@@ -1,0 +1,9 @@
+{
+  "server.global.scrape_interval": "How often Prometheus collects metrics from targets that use the default interval.",
+  "server.retention": "How long Prometheus keeps stored samples.",
+  "server.persistentVolume.enabled": "Store samples on a persistent volume so they survive replacement of the server Pod.",
+  "server.persistentVolume.size": "Storage capacity requested for the Prometheus data volume.",
+  "server.resources": "CPU and memory the Prometheus server requests and the limits Kubernetes enforces.",
+  "alertmanager.enabled": "Include Alertmanager to receive and route alerts from Prometheus.",
+  "kube-state-metrics.enabled": "Include an exporter that reports the state of Kubernetes objects as metrics."
+}

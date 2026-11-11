@@ -1,0 +1,9 @@
+[
+  { "path": "server.global.scrape_interval", "label": "Scrape interval", "type": "text", "default": "1m" },
+  { "path": "server.retention", "label": "Retention period", "type": "text", "default": "15d" },
+  { "path": "server.persistentVolume.enabled", "label": "Persistent storage", "type": "boolean", "default": true },
+  { "path": "server.persistentVolume.size", "label": "Storage size", "type": "text", "default": "8Gi", "requires": "server.persistentVolume.enabled" },
+  { "path": "server.resources", "label": "CPU and memory", "type": "resources", "default": {} },
+  { "path": "alertmanager.enabled", "label": "Alertmanager", "type": "boolean", "default": true },
+  { "path": "kube-state-metrics.enabled", "label": "Kube-state-metrics", "type": "boolean", "default": true }
+]

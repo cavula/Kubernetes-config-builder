@@ -1,0 +1,9 @@
+{
+  "server.service.type": "ClusterIP exposes the API and UI inside the cluster. NodePort also exposes them on a port on each node.",
+  "server.replicas": "Number of Pods serving the Argo CD API and web UI.",
+  "repoServer.replicas": "Number of Pods that fetch repositories and generate Kubernetes manifests.",
+  "server.resources": "CPU and memory requests and limits for the Argo CD API and web UI server.",
+  "repoServer.resources": "CPU and memory requests and limits for the repository server.",
+  "server.metrics.enabled": "Create a Service for scraping Argo CD API server metrics.",
+  "dex.enabled": "Deploy Dex for federated sign-in."
+}

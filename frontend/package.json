@@ -9,7 +9,7 @@
     "dev": "vite",
     "lint": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
-    "test": "node --test ../tests/selection.test.mjs"
+    "test": "node --test ../tests/*.test.mjs"
   },
   "dependencies": {
     "monaco-editor": "0.57.0",

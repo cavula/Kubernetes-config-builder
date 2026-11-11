@@ -1,9 +1,29 @@
 {
-  "server.service.type": "ClusterIP exposes the API and UI inside the cluster. NodePort also exposes them on a port on each node.",
-  "server.replicas": "Number of Pods serving the Argo CD API and web UI.",
-  "repoServer.replicas": "Number of Pods that fetch repositories and generate Kubernetes manifests.",
-  "server.resources": "CPU and memory requests and limits for the Argo CD API and web UI server.",
-  "repoServer.resources": "CPU and memory requests and limits for the repository server.",
-  "server.metrics.enabled": "Create a Service for scraping Argo CD API server metrics.",
-  "dex.enabled": "Deploy Dex for federated sign-in."
+  "fields": {
+    "server.service.type": "ClusterIP exposes the API and UI inside the cluster. NodePort also exposes them on a port on each node.",
+    "server.replicas": "Number of Pods serving the Argo CD API and web UI.",
+    "repoServer.replicas": "Number of Pods that fetch repositories and generate Kubernetes manifests.",
+    "server.resources": "CPU and memory requests and limits for the Argo CD API and web UI server.",
+    "repoServer.resources": "CPU and memory requests and limits for the repository server.",
+    "server.metrics.enabled": "Create a Service for scraping Argo CD API server metrics.",
+    "dex.enabled": "Deploy Dex for federated sign-in.",
+    "server": "Configure the Argo CD API server and web UI.",
+    "server.service": "Configure how Kubernetes exposes the Argo CD API and web UI.",
+    "server.metrics": "Configure metrics exposure for the Argo CD API server.",
+    "repoServer": "Configure the component that fetches repositories and generates manifests.",
+    "dex": "Configure the Dex identity service for federated login.",
+    "server.resources.requests": "Resources Kubernetes reserves when scheduling this container.",
+    "server.resources.requests.cpu": "CPU request for this container, expressed in cores or millicores.",
+    "server.resources.requests.memory": "Memory request for this container, expressed as a Kubernetes quantity.",
+    "server.resources.limits": "Upper bounds Kubernetes enforces for this container.",
+    "server.resources.limits.cpu": "CPU limit for this container, expressed in cores or millicores.",
+    "server.resources.limits.memory": "Memory limit for this container, expressed as a Kubernetes quantity.",
+    "repoServer.resources.requests": "Resources Kubernetes reserves when scheduling this container.",
+    "repoServer.resources.requests.cpu": "CPU request for this container, expressed in cores or millicores.",
+    "repoServer.resources.requests.memory": "Memory request for this container, expressed as a Kubernetes quantity.",
+    "repoServer.resources.limits": "Upper bounds Kubernetes enforces for this container.",
+    "repoServer.resources.limits.cpu": "CPU limit for this container, expressed in cores or millicores.",
+    "repoServer.resources.limits.memory": "Memory limit for this container, expressed as a Kubernetes quantity."
+  },
+  "dependencyHints": {}
 }

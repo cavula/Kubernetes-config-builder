@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { catalogs, defaultValues, previewValues, type Value } from './builder-values';
+import { catalogs, defaultValues, dependencyHint, previewValues, type Value } from './builder-values';
 import { Preview } from './Preview';
 
 export function Builder({ tool }: { tool: keyof typeof catalogs }) {
@@ -18,7 +18,8 @@ export function Builder({ tool }: { tool: keyof typeof catalogs }) {
       <section aria-label="Builder options" className="builder-options">
         {catalog.options.map(option => {
           const value = current[option.path];
-          const note = catalog.notes[option.path];
+          const hint = dependencyHint(catalog, option, current);
+          const note = catalog.notes.fields[option.path];
           if (typeof value === 'object') {
             return (
               <fieldset key={option.path}>
@@ -59,7 +60,7 @@ export function Builder({ tool }: { tool: keyof typeof catalogs }) {
                   }}
                 />
               )}
-              <small>{option.requires && !current[option.requires] ? 'Enable persistent storage to set the size.' : note}</small>
+              <small>{hint ?? note}</small>
             </label>
           );
         })}

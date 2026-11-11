@@ -1,9 +1,25 @@
 {
-  "server.global.scrape_interval": "How often Prometheus collects metrics from targets that use the default interval.",
-  "server.retention": "How long Prometheus keeps stored samples.",
-  "server.persistentVolume.enabled": "Store samples on a persistent volume so they survive replacement of the server Pod.",
-  "server.persistentVolume.size": "Storage capacity requested for the Prometheus data volume.",
-  "server.resources": "CPU and memory the Prometheus server requests and the limits Kubernetes enforces.",
-  "alertmanager.enabled": "Include Alertmanager to receive and route alerts from Prometheus.",
-  "kube-state-metrics.enabled": "Include an exporter that reports the state of Kubernetes objects as metrics."
+  "fields": {
+    "server.global.scrape_interval": "How often Prometheus collects metrics from targets that use the default interval.",
+    "server.retention": "How long Prometheus keeps stored samples.",
+    "server.persistentVolume.enabled": "Store samples on a persistent volume so they survive replacement of the server Pod.",
+    "server.persistentVolume.size": "Storage capacity requested for the Prometheus data volume.",
+    "server.resources": "CPU and memory the Prometheus server requests and the limits Kubernetes enforces.",
+    "alertmanager.enabled": "Include Alertmanager to receive and route alerts from Prometheus.",
+    "kube-state-metrics.enabled": "Include an exporter that reports the state of Kubernetes objects as metrics.",
+    "server": "Configure the Prometheus server that scrapes targets and stores time-series data.",
+    "server.global": "Set defaults for Prometheus scrape jobs and rule evaluation.",
+    "server.persistentVolume": "Configure storage for the Prometheus time-series database.",
+    "alertmanager": "Configure the Alertmanager dependency that routes notifications.",
+    "kube-state-metrics": "Configure the dependency that exposes the state of Kubernetes objects as metrics.",
+    "server.resources.requests": "Resources Kubernetes reserves when scheduling this container.",
+    "server.resources.requests.cpu": "CPU request for this container, expressed in cores or millicores.",
+    "server.resources.requests.memory": "Memory request for this container, expressed as a Kubernetes quantity.",
+    "server.resources.limits": "Upper bounds Kubernetes enforces for this container.",
+    "server.resources.limits.cpu": "CPU limit for this container, expressed in cores or millicores.",
+    "server.resources.limits.memory": "Memory limit for this container, expressed as a Kubernetes quantity."
+  },
+  "dependencyHints": {
+    "server.persistentVolume.size": "Enable persistent storage to set the size."
+  }
 }

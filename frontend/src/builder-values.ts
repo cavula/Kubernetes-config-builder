@@ -1,7 +1,7 @@
-import prometheusOptions from '../../templates/prometheus/options.json';
-import prometheusNotes from '../../templates/prometheus/notes.json';
-import argoOptions from '../../templates/argo-cd/options.json';
-import argoNotes from '../../templates/argo-cd/notes.json';
+import prometheusOptions from '../../templates/prometheus/options.json' with { type: 'json' };
+import prometheusNotes from '../../templates/prometheus/notes.json' with { type: 'json' };
+import argoOptions from '../../templates/argo-cd/options.json' with { type: 'json' };
+import argoNotes from '../../templates/argo-cd/notes.json' with { type: 'json' };
 
 type Resources = Partial<Record<'requests' | 'limits', Partial<Record<'cpu' | 'memory', string>>>>;
 export type Value = string | number | boolean | Resources;
@@ -14,7 +14,7 @@ type Option = {
   choices?: string[];
 };
 
-type Catalog = { options: Option[]; notes: Record<string, string> };
+type Catalog = { options: Option[]; notes: { fields: Record<string, string>; dependencyHints: Partial<Record<string, string>> } };
 export const catalogs: Record<'prometheus' | 'argo-cd', Catalog> = {
   prometheus: { options: prometheusOptions, notes: prometheusNotes },
   'argo-cd': { options: argoOptions, notes: argoNotes },
@@ -24,7 +24,11 @@ export function defaultValues(catalog: Catalog): Record<string, Value> {
   return Object.fromEntries(catalog.options.map(option => [option.path, option.default]));
 }
 
-type Field = { children: Map<string, Field>; note?: string; value?: string | number | boolean };
+export function dependencyHint(catalog: Catalog, option: Option, values: Record<string, Value>) {
+  return option.requires && !values[option.requires] ? catalog.notes.dependencyHints[option.path] : undefined;
+}
+
+type Field = { children: Map<string, Field>; value?: string | number | boolean };
 
 export function previewValues(catalog: Catalog, values: Record<string, Value>) {
   const root: Field = { children: new Map() };
@@ -45,7 +49,6 @@ export function previewValues(catalog: Catalog, values: Record<string, Value>) {
   for (const option of catalog.options) {
     if (option.requires && !values[option.requires]) continue;
     const field = fieldAt(option.path);
-    field.note = catalog.notes[option.path];
     const value = values[option.path];
     if (typeof value === 'object') {
       for (const [group, quantities] of Object.entries(value)) {
@@ -53,7 +56,6 @@ export function previewValues(catalog: Catalog, values: Record<string, Value>) {
           if (quantity) {
             const resourceField = fieldAt(`${group}.${resource}`, field);
             resourceField.value = quantity;
-            resourceField.note = `${group === 'requests' ? 'Requested' : 'Maximum'} ${resource === 'cpu' ? 'CPU' : 'memory'} for this container.`;
           }
         }
       }
@@ -64,15 +66,17 @@ export function previewValues(catalog: Catalog, values: Record<string, Value>) {
 
   const lines: string[] = [];
   const notes = new Map<number, string>();
-  function writeFields(parent: Field, depth: number) {
+  function writeFields(parent: Field, depth: number, prefix = '') {
     const indent = '  '.repeat(depth);
     for (const [key, field] of parent.children) {
-      const note = field.note ?? `Settings under ${key}.`;
+      const path = prefix ? `${prefix}.${key}` : key;
+      const note = catalog.notes.fields[path];
+      if (!note) throw new Error(`Missing chart explanation for ${path}`);
       lines.push(`${indent}# ${note}`);
       notes.set(lines.length + 1, note);
       const suffix = field.children.size ? '' : ` ${field.value === undefined ? '{}' : JSON.stringify(field.value)}`;
       lines.push(`${indent}${key}:${suffix}`);
-      writeFields(field, depth + 1);
+      writeFields(field, depth + 1, path);
     }
   }
   writeFields(root, 0);

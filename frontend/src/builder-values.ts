@@ -12,6 +12,7 @@ type Option = {
   default: Value;
   requires?: string;
   choices?: string[];
+  comparison?: string;
 };
 
 type Catalog = { options: Option[]; notes: { fields: Record<string, string>; dependencyHints: Partial<Record<string, string>> } };
@@ -26,6 +27,26 @@ export function defaultValues(catalog: Catalog): Record<string, Value> {
 
 export function dependencyHint(catalog: Catalog, option: Option, values: Record<string, Value>) {
   return option.requires && !values[option.requires] ? catalog.notes.dependencyHints[option.path] : undefined;
+}
+
+export function comparisonValues(catalog: Catalog, path: string, values: Record<string, Value>) {
+  const option = catalog.options.find(entry => entry.path === path);
+  if (!option || (option.requires && !values[option.requires])) return undefined;
+  const value = values[path];
+  let alternate: Value;
+  if (typeof value === 'boolean') {
+    alternate = !value;
+  } else if (typeof value === 'number') {
+    alternate = value === 1 ? 2 : 1;
+  } else if (typeof value === 'object') {
+    const hasQuantities = Object.values(value).some(group => Object.values(group).some(Boolean));
+    alternate = hasQuantities ? {} : { requests: { cpu: '100m', memory: '128Mi' } };
+  } else {
+    const sample = option.choices?.find(choice => choice !== value) ?? option.comparison;
+    if (sample === undefined) return undefined;
+    alternate = sample === value ? option.default : sample;
+  }
+  return { ...values, [path]: alternate };
 }
 
 type Field = { children: Map<string, Field>; value?: string | number | boolean };
@@ -66,6 +87,7 @@ export function previewValues(catalog: Catalog, values: Record<string, Value>) {
 
   const lines: string[] = [];
   const notes = new Map<number, string>();
+  const fieldLines = new Map<string, number>();
   function writeFields(parent: Field, depth: number, prefix = '') {
     const indent = '  '.repeat(depth);
     for (const [key, field] of parent.children) {
@@ -74,11 +96,12 @@ export function previewValues(catalog: Catalog, values: Record<string, Value>) {
       if (!note) throw new Error(`Missing chart explanation for ${path}`);
       lines.push(`${indent}# ${note}`);
       notes.set(lines.length + 1, note);
+      fieldLines.set(path, lines.length + 1);
       const suffix = field.children.size ? '' : ` ${field.value === undefined ? '{}' : JSON.stringify(field.value)}`;
       lines.push(`${indent}${key}:${suffix}`);
       writeFields(field, depth + 1, path);
     }
   }
   writeFields(root, 0);
-  return { text: lines.join('\n') + '\n', notes };
+  return { text: lines.join('\n') + '\n', notes, fieldLines };
 }

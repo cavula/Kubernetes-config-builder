@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { catalogs, defaultValues, dependencyHint, previewValues, type Value } from './builder-values';
 import { Preview } from './Preview';
+import { ChartComparison } from './ChartComparison';
+import { renderChart } from './render-chart';
 
 export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalogs; kubernetesVersion: string }) {
   const catalog = catalogs[tool];
@@ -10,22 +12,16 @@ export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalo
   });
 
   const [format, setFormat] = useState<'values' | 'manifests'>('values');
+  const [compare, setCompare] = useState(false);
   const [manifest, setManifest] = useState({ current: '', previous: '', error: '' });
   const currentPreview = previewValues(catalog, current);
 
   useEffect(() => {
-    if (format !== 'manifests') return;
+    if (format !== 'manifests' || compare) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const response = await fetch('/api/render', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ tool, kubernetesVersion, values: currentPreview.text }),
-          signal: controller.signal,
-        });
-        const text = await response.text();
-        if (!response.ok) throw new Error(response.status === 422 ? text : 'The local chart renderer is unavailable.');
+        const text = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
         if (!controller.signal.aborted) {
           setManifest(({ current }) => ({ current: text, previous: current || text, error: '' }));
         }
@@ -42,14 +38,14 @@ export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalo
       clearTimeout(timer);
       controller.abort();
     };
-  }, [format, tool, kubernetesVersion, currentPreview.text]);
+  }, [compare, format, tool, kubernetesVersion, currentPreview.text]);
 
   function update(path: string, value: Value) {
     setValues(({ current }) => ({ current: { ...current, [path]: value }, previous: current }));
   }
 
   return (
-    <div className="builder">
+    <div className={compare ? "builder builder-comparing" : "builder"}>
       <section aria-label="Builder options" className="builder-options">
         {catalog.options.map(option => {
           const value = current[option.path];
@@ -108,7 +104,12 @@ export function Builder({ tool, kubernetesVersion }: { tool: keyof typeof catalo
             <option value="manifests">Kubernetes manifests</option>
           </select>
         </label>
-        {format === 'values' ? (
+        <button type="button" aria-pressed={compare} onClick={() => setCompare(open => !open)}>
+          {compare ? 'Close comparison' : 'Compare Helm values and YAML'}
+        </button>
+        {compare ? (
+          <ChartComparison tool={tool} kubernetesVersion={kubernetesVersion} values={current} />
+        ) : format === 'values' ? (
           <Preview current={currentPreview} previous={previewValues(catalog, previous)} />
         ) : (
           <>

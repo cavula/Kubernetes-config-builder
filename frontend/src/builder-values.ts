@@ -1,0 +1,80 @@
+import prometheusOptions from '../../templates/prometheus/options.json';
+import prometheusNotes from '../../templates/prometheus/notes.json';
+import argoOptions from '../../templates/argo-cd/options.json';
+import argoNotes from '../../templates/argo-cd/notes.json';
+
+type Resources = Partial<Record<'requests' | 'limits', Partial<Record<'cpu' | 'memory', string>>>>;
+export type Value = string | number | boolean | Resources;
+type Option = {
+  path: string;
+  label: string;
+  type: string;
+  default: Value;
+  requires?: string;
+  choices?: string[];
+};
+
+type Catalog = { options: Option[]; notes: Record<string, string> };
+export const catalogs: Record<'prometheus' | 'argo-cd', Catalog> = {
+  prometheus: { options: prometheusOptions, notes: prometheusNotes },
+  'argo-cd': { options: argoOptions, notes: argoNotes },
+};
+
+export function defaultValues(catalog: Catalog): Record<string, Value> {
+  return Object.fromEntries(catalog.options.map(option => [option.path, option.default]));
+}
+
+type Field = { children: Map<string, Field>; note?: string; value?: string | number | boolean };
+
+export function previewValues(catalog: Catalog, values: Record<string, Value>) {
+  const root: Field = { children: new Map() };
+
+  function fieldAt(path: string, start = root) {
+    let parent = start;
+    for (const key of path.split('.')) {
+      let field = parent.children.get(key);
+      if (!field) {
+        field = { children: new Map() };
+        parent.children.set(key, field);
+      }
+      parent = field;
+    }
+    return parent;
+  }
+
+  for (const option of catalog.options) {
+    if (option.requires && !values[option.requires]) continue;
+    const field = fieldAt(option.path);
+    field.note = catalog.notes[option.path];
+    const value = values[option.path];
+    if (typeof value === 'object') {
+      for (const [group, quantities] of Object.entries(value)) {
+        for (const [resource, quantity] of Object.entries(quantities)) {
+          if (quantity) {
+            const resourceField = fieldAt(`${group}.${resource}`, field);
+            resourceField.value = quantity;
+            resourceField.note = `${group === 'requests' ? 'Requested' : 'Maximum'} ${resource === 'cpu' ? 'CPU' : 'memory'} for this container.`;
+          }
+        }
+      }
+    } else {
+      field.value = value;
+    }
+  }
+
+  const lines: string[] = [];
+  const notes = new Map<number, string>();
+  function writeFields(parent: Field, depth: number) {
+    const indent = '  '.repeat(depth);
+    for (const [key, field] of parent.children) {
+      const note = field.note ?? `Settings under ${key}.`;
+      lines.push(`${indent}# ${note}`);
+      notes.set(lines.length + 1, note);
+      const suffix = field.children.size ? '' : ` ${field.value === undefined ? '{}' : JSON.stringify(field.value)}`;
+      lines.push(`${indent}${key}:${suffix}`);
+      writeFields(field, depth + 1);
+    }
+  }
+  writeFields(root, 0);
+  return { text: lines.join('\n') + '\n', notes };
+}

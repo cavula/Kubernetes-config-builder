@@ -1,0 +1,91 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #17253b;
+  background: #f3f6fb;
+}
+
+main {
+  max-width: 55rem;
+  margin: 10vh auto;
+  padding: 0 1.25rem;
+}
+
+h1 {
+  font-size: clamp(1.75rem, 5vw, 3rem);
+  letter-spacing: -0.045em;
+}
+
+section {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid #d5dfed;
+  border-radius: 0.75rem;
+  background: white;
+}
+
+label {
+  display: grid;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+select {
+  padding: 0.6rem;
+  border: 1px solid #8295af;
+  border-radius: 0.4rem;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
+
+.builder {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(0, 2fr);
+  align-items: start;
+  gap: 1rem;
+}
+
+.builder-options {
+  grid-template-columns: 1fr;
+}
+
+.builder-output h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+
+.preview {
+  height: 34rem;
+  border: 1px solid #d5dfed;
+  background: white;
+}
+
+.builder input:not([type='checkbox']) {
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px solid #8295af;
+  border-radius: 0.4rem;
+  font: inherit;
+}
+
+.builder input[type='checkbox'] {
+  justify-self: start;
+}
+
+.builder fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 0.5rem;
+}
+
+.builder small {
+  font-weight: 400;
+}
+
+@media (max-width: 640px) {
+  .builder {
+    grid-template-columns: 1fr;
+  }
+}

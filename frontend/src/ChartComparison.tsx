@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { comparisonValues, dependencyHint, previewValues, type Catalog, type Value } from './builder-values';
 import { Preview, type LineRange } from './Preview';
 import { manifestNotes } from './manifest-notes';
+import { explainManifestField } from './render-chart';
 
 type Change = {
   resource: { apiVersion: string; kind: string; namespace?: string; name: string };
@@ -9,10 +10,7 @@ type Change = {
   current?: LineRange;
   prior?: LineRange;
 };
-type Comparison = {
-  current: string; prior: string; changes: Change[];
-  currentNotes: Record<string, string>; priorNotes: Record<string, string>;
-};
+type Comparison = { current: string; prior: string; changes: Change[] };
 
 function rangeLabel(range: LineRange) {
   return range.start === range.end ? `line ${range.start}` : `lines ${range.start}–${range.end}`;
@@ -70,7 +68,7 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
   const side = selected?.side ?? 'current';
   const ranges = comparison?.changes.flatMap(change => change[side] ? [change[side]] : []);
   const text = comparison?.[side] ?? '';
-  const rendered = { text, notes: manifestNotes(text, side === 'current' ? comparison?.currentNotes : comparison?.priorNotes) };
+  const rendered = { text, notes: manifestNotes(text) };
   const hint = dependencyHint(catalog, option, values);
   return (
     <div className="chart-comparison" aria-label="Helm to YAML comparison">
@@ -99,7 +97,7 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
         <div>
           <h2>{side === 'current' ? 'Rendered YAML' : 'YAML with comparison value'}</h2>
           {comparison && (
-            <Preview current={rendered} previous={rendered} highlightRanges={ranges} focusRange={selected?.range} />
+            <Preview explainField={(text, line, signal) => explainManifestField(text, kubernetesVersion, line, signal)} current={rendered} previous={rendered} highlightRanges={ranges} focusRange={selected?.range} />
           )}
         </div>
       </div>

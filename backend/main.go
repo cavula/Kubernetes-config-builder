@@ -231,22 +231,6 @@ func main() {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		if r.Header.Get("Accept") == "application/x-ndjson" {
-			w.Header().Set("Content-Type", "application/x-ndjson")
-			encoder := json.NewEncoder(w)
-			if err := encoder.Encode(manifest); err != nil {
-				log.Print(err)
-				return
-			}
-			if err := http.NewResponseController(w).Flush(); err != nil {
-				log.Print(err)
-				return
-			}
-			if err := encoder.Encode(manifestHoverNotes(manifest, *schemaDir, req.KubernetesVersion)); err != nil {
-				log.Print(err)
-			}
-			return
-		}
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 		if _, err := io.WriteString(w, manifest); err != nil {
 			log.Print(err)
@@ -279,17 +263,30 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		response := struct {
-			Current      string           `json:"current"`
-			Prior        string           `json:"prior"`
-			Changes      []resourceChange `json:"changes"`
-			CurrentNotes map[int]string   `json:"currentNotes"`
-			PriorNotes   map[int]string   `json:"priorNotes"`
-		}{current, prior, changes, manifestHoverNotes(current, *schemaDir, req.KubernetesVersion), nil}
-		response.PriorNotes = response.CurrentNotes
-		if prior != current {
-			response.PriorNotes = manifestHoverNotes(prior, *schemaDir, req.KubernetesVersion)
-		}
+			Current string           `json:"current"`
+			Prior   string           `json:"prior"`
+			Changes []resourceChange `json:"changes"`
+		}{current, prior, changes}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Print(err)
+		}
+	})
+
+	mux.HandleFunc("POST /api/hover", func(w http.ResponseWriter, r *http.Request) {
+		var req struct {
+			Manifest          string
+			KubernetesVersion string
+			Line              int
+		}
+		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 8<<20))
+		if err := decoder.Decode(&req); err != nil || req.Line < 1 ||
+			!slices.Contains([]string{"1.35", "1.36", "1.37"}, req.KubernetesVersion) {
+			http.Error(w, "Invalid hover request.", http.StatusBadRequest)
+			return
+		}
+		note := manifestFieldHover(req.Manifest, *schemaDir, req.KubernetesVersion, req.Line)
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(note); err != nil && r.Context().Err() == nil {
 			log.Print(err)
 		}
 	})

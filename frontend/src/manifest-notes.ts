@@ -1,5 +1,5 @@
-export function manifestNotes(manifest: string, schemaNotes?: Record<string, string>) {
-  const notes = new Map(Object.entries(schemaNotes ?? {}).map(([line, note]) => [Number(line), note]));
+export function manifestNotes(manifest: string) {
+  const notes = new Map<number, string>();
   let section = '';
   let field = '';
   for (const [index, line] of manifest.split('\n').entries()) {

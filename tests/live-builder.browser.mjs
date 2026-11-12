@@ -53,7 +53,7 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
       globalThis.testMonaco = (await import(url)).editor;
     });
 
-    const current = () => page.evaluate(() => globalThis.testMonaco.getModels().at(-1)?.getValue() || '');
+    const currentVersion = () => page.evaluate(() => globalThis.testMonaco.getModels().at(-1)?.getVersionId());
     const chooser = page.locator('section[aria-label="Configuration selection"] select').last();
     const formatControl = page.locator('.builder-output select').first();
     const elapsed = [];
@@ -65,14 +65,14 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
         await page.waitForFunction(() => Boolean(globalThis.testMonaco.getModels().at(-1)?.getValue()));
         for (const [name, type, value] of edits) {
           const control = optionControl(page, name, type);
-          const before = await current();
+          const before = await currentVersion();
           const start = performance.now();
           if (type === 'check') await control.setChecked(!(await control.isChecked()));
           else if (type === 'select') await control.selectOption(value);
           else await control.fill(value);
           await page.waitForFunction(old => {
-            const next = globalThis.testMonaco.getModels().at(-1)?.getValue();
-            return Boolean(next && next !== old);
+            const model = globalThis.testMonaco.getModels().at(-1);
+            return Boolean(model && model.getValueLength() > 0 && model.getVersionId() !== old);
           }, before);
           const milliseconds = performance.now() - start;
           elapsed.push(milliseconds);

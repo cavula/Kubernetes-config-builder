@@ -78,3 +78,24 @@ func TestEveryRenderedMappingFieldHasHover(t *testing.T) {
 		}
 	}
 }
+
+func TestManifestFieldHoverUsesExportedLineNumbers(t *testing.T) {
+	manifest := `# Export header
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-service
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: settings
+data:
+  setting: enabled
+`
+	note := manifestFieldHover(manifest, t.TempDir(), "1.37", 13)
+	if !strings.Contains(note, "Configuration entry “setting”") {
+		t.Fatalf("got %q for second document field", note)
+	}
+}

@@ -98,6 +98,18 @@ func fieldDescription(id resourceID, path []string, schema schemaObject, inherit
 	return "“" + label + "” is part of the configuration for this " + id.Kind + "."
 }
 
+func manifestFieldHover(manifest, schemaDir, version string, line int) string {
+	start := 1
+	for _, document := range strings.Split(manifest, "\n---\n") {
+		end := start + strings.Count(document, "\n")
+		if line >= start && line <= end {
+			return manifestHoverNotes(document, schemaDir, version)[line-start+1]
+		}
+		start = end + 2 // The separator occupies its own line.
+	}
+	return ""
+}
+
 func manifestHoverNotes(manifest, schemaDir, version string) map[int]string {
 	notes := make(map[int]string)
 	resources, err := manifestResources(manifest)

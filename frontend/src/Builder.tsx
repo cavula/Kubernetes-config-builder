@@ -6,7 +6,7 @@ import { ChartComparison } from './ChartComparison';
 import { ExportActions } from './ExportActions';
 import { ValidationStatus } from './ValidationStatus';
 import { manifestNotes } from './manifest-notes';
-import { renderChart } from './render-chart';
+import { explainManifestField, renderChart } from './render-chart';
 
 export function Builder({ tool, chartVersion, kubernetesVersion }: {
   tool: keyof typeof catalogs;
@@ -32,16 +32,13 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const { text, notes } = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal, text => {
-          if (controller.signal.aborted) return;
+        const text = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
+        if (!controller.signal.aborted) {
           const currentNotes = manifestNotes(text);
           setManifest(({ current, notes }) => ({
             key: renderKey, current: text, previous: current || text,
             notes: currentNotes, previousNotes: current ? notes : currentNotes, error: '',
           }));
-        });
-        if (!controller.signal.aborted) {
-          setManifest(previous => ({ ...previous, notes: manifestNotes(text, notes) }));
         }
       } catch (error) {
         if (!controller.signal.aborted) {
@@ -150,7 +147,8 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
         ) : (
           <>
             {manifest.key === renderKey && manifest.error && <p role="alert">{manifest.error}</p>}
-            <Preview current={{ text: currentManifest, notes: manifest.notes }} previous={{ text: manifest.previous, notes: manifest.previousNotes }} />
+            <Preview explainField={(text, line, signal) => explainManifestField(text, kubernetesVersion, line, signal)}
+              current={{ text: manifest.current, notes: manifest.notes }} previous={{ text: manifest.previous, notes: manifest.previousNotes }} />
           </>
         )}
       </div>

@@ -7,17 +7,43 @@ self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 type Content = { text: string; notes: Map<number, string> };
 export type LineRange = { start: number; end: number };
 
-export function Preview({ current, previous, focusLine, focusRange, highlightRanges }: {
+function updateModel(model: monaco.editor.ITextModel, text: string) {
+  const current = model.getValue();
+  if (current === text) return;
+  if (!current || !text) {
+    model.setValue(text);
+    return;
+  }
+  let start = 0;
+  let oldEnd = current.length;
+  let newEnd = text.length;
+  while (start < oldEnd && start < newEnd && current[start] === text[start]) start++;
+  while (oldEnd > start && newEnd > start && current[oldEnd - 1] === text[newEnd - 1]) {
+    oldEnd--;
+    newEnd--;
+  }
+  if (Math.max(oldEnd - start, newEnd - start) > 64 * 1024) {
+    model.setValue(text);
+    return;
+  }
+  model.applyEdits([{
+    range: monaco.Range.fromPositions(model.getPositionAt(start), model.getPositionAt(oldEnd)),
+    text: text.slice(start, newEnd),
+  }]);
+}
+
+export function Preview({ current, previous, focusLine, focusRange, highlightRanges, explainField }: {
   current: Content;
   previous: Content;
   focusLine?: number;
   focusRange?: LineRange;
   highlightRanges?: LineRange[];
+  explainField?: (text: string, line: number, signal: AbortSignal) => Promise<string>;
 }) {
   const container = useRef<HTMLDivElement>(null);
   const models = useRef<{ original: monaco.editor.ITextModel; modified: monaco.editor.ITextModel }>(null);
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor>(null);
-  const hoverNotes = useRef({ current: current.notes, previous: previous.notes });
+  const hoverNotes = useRef({ current: current.notes, previous: previous.notes, explainField });
 
   useEffect(() => {
     const original = monaco.editor.createModel('', 'yaml');
@@ -31,9 +57,26 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
       accessibilityVerbose: true,
     });
     const hover = monaco.languages.registerHoverProvider('yaml', {
-      provideHover(model, position) {
-        const notes = model === modified ? hoverNotes.current.current : model === original ? hoverNotes.current.previous : undefined;
-        const note = notes?.get(position.lineNumber);
+      async provideHover(model, position, token) {
+        const { current, previous, explainField } = hoverNotes.current;
+        const notes = model === modified ? current : model === original ? previous : undefined;
+        if (!notes) return;
+        const line = position.lineNumber;
+        let note = notes.get(line);
+        if (!note && explainField && model.getLineContent(line).trim()) {
+          const version = model.getVersionId();
+          const controller = new AbortController();
+          const cancellation = token.onCancellationRequested(() => controller.abort());
+          try {
+            note = await explainField(model.getValue(), line, controller.signal);
+          } catch {
+            return;
+          } finally {
+            cancellation.dispose();
+          }
+          if (token.isCancellationRequested || model.isDisposed() || model.getVersionId() !== version) return;
+          if (note) notes.set(line, note);
+        }
         if (note) return { contents: [{ value: note.replace(/[\\`*_{}\[\]()<>#+.!|]/g, '\\$&') }] };
       },
     });
@@ -51,11 +94,11 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
   }, []);
 
   useEffect(() => {
-    hoverNotes.current = { current: current.notes, previous: previous.notes };
+    hoverNotes.current = { current: current.notes, previous: previous.notes, explainField };
     const { original, modified } = models.current!;
-    if (original.getValue() !== previous.text) original.setValue(previous.text);
-    if (modified.getValue() !== current.text) modified.setValue(current.text);
-  }, [current, previous]);
+    updateModel(original, previous.text);
+    updateModel(modified, current.text);
+  }, [current, previous, explainField]);
 
   useEffect(() => {
     const editor = editorRef.current!;

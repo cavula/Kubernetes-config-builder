@@ -58,17 +58,10 @@ curl --fail --silent --show-error -H 'Content-Type: application/json' --data "$p
 curl --fail --silent --show-error -H 'Content-Type: application/json' --data "$payload" \
   http://127.0.0.1:8080/api/render > "$manifest"
 
-if [[ "$tool" == prometheus ]]; then
-  "${cluster[@]}" create namespace "$namespace" --dry-run=client -o yaml |
-    "${cluster[@]}" apply --server-side -f -
-  "${cluster[@]}" -n "$namespace" apply --server-side --dry-run=server -f "$manifest"
-  "${cluster[@]}" -n "$namespace" apply --server-side -f "$manifest"
-else
-  # The exported Namespace must be persisted before a server dry run can see it.
-  # The live install uses the complete export on its own.
-  "${cluster[@]}" apply --server-side -f "$manifest"
-  "${cluster[@]}" apply --server-side --dry-run=server -f "$manifest"
-fi
+# Each export includes its namespace. Apply the complete export on a fresh
+# cluster before a server dry run, which cannot persist a Namespace.
+"${cluster[@]}" -n "$namespace" apply --server-side -f "$manifest"
+"${cluster[@]}" -n "$namespace" apply --server-side --dry-run=server -f "$manifest"
 
 workloads=$("${cluster[@]}" -n "$namespace" get deployments,statefulsets,daemonsets -o name)
 if [[ -z "$workloads" ]]; then

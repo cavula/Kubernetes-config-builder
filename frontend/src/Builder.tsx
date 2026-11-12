@@ -1,3 +1,4 @@
+import exportGuides from '../../backend/export-guides.json';
 import acceptedRisks from '../../security/accepted-risks.json';
 import { useEffect, useState } from 'react';
 import { catalogForChart, defaultValues, dependencyHint, previewValues, type catalogs, type Value } from './builder-values';
@@ -62,7 +63,16 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
   }
 
   const currentManifest = manifest.key === renderKey ? manifest.current : '';
-  const exportText = format === 'values' ? currentPreview.text : currentManifest;
+  const valuesExport = exportGuides[tool].map(line => '# ' + line).join('\n') + '\n\n' + currentPreview.text;
+  async function loadExport(part: 'manifests' | 'crds') {
+    const response = await fetch('/api/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tool, kubernetesVersion, values: currentPreview.text }),
+    });
+    if (!response.ok) throw new Error((await response.text()).trim() || 'Could not prepare the export.');
+    return (await response.json())[part] as string;
+  }
 
   return (
     <div className={compare ? "builder builder-comparing" : "builder"}>
@@ -129,14 +139,20 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
           Preview format
           <select value={format} onChange={event => setFormat(event.target.value === 'manifests' ? 'manifests' : 'values')}>
             <option value="values">Helm values</option>
-            <option value="manifests">Kubernetes manifests</option>
+            <option value="manifests">See what this creates</option>
           </select>
         </label>
-        <ExportActions
-          key={`${tool}-${format}`}
-          text={exportText}
-          filename={`${tool}-${format}.yaml`}
-        />
+        <ExportActions key={tool} text={valuesExport} filename={`${tool}-values.yaml`} label="Download Helm values" copyLabel="Copy Helm values" />
+        {format === 'manifests' && (
+          <>
+            <ExportActions text={currentManifest} filename={`${tool}-manifests.yaml`}
+              label="Download explained manifests" copyLabel="Copy explained manifests" load={() => loadExport('manifests')} />
+            {tool === 'argo-cd' && (
+              <ExportActions text={currentManifest} filename="argo-cd-crds.yaml"
+                label="Download CRD schemas" copyLabel="Copy CRD schemas" load={() => loadExport('crds')} />
+            )}
+          </>
+        )}
         <button type="button" aria-pressed={compare} onClick={() => setCompare(open => !open)}>
           {compare ? 'Close comparison' : 'Compare Helm values and YAML'}
         </button>

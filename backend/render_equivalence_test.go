@@ -55,12 +55,12 @@ func TestPlainYAMLMatchesHelmTemplate(t *testing.T) {
 				}
 				actual := resourceJSON(t, exported)
 				expected := resourceJSON(t, string(output))
-				if req.Tool == "argo-cd" {
+				{
 					// A kubectl export bootstraps the namespace, which Helm's
 					// namespace creation is a separate operation.
 					id := resourceID{APIVersion: "v1", Kind: "Namespace", Name: pin.namespace}
 					if actual[id] == "" {
-						t.Fatal("Argo CD export lacks its bootstrap Namespace")
+						t.Fatal("export lacks its bootstrap Namespace")
 					}
 					delete(actual, id)
 				}

@@ -4,17 +4,17 @@ Approved November 11, 2026.
 
 ## Inputs
 
-The active format, its current generated text, and a copy or download action.
+The current configuration and the selected copy or download action.
 
 ## Outputs
 
-Clipboard text or one YAML file containing the displayed output, including explanatory comments.
+A short Helm values file as the primary export, plus optional explained workload YAML and separate CRDs.
 
 ## Acceptance criteria
 
-- [x] One click copies the active text and reports success or clipboard failure.
-- [x] One click downloads the active text as `<tool>-manifests.yaml` in YAML mode or `<tool>-values.yaml` in Helm mode.
-- [x] Both actions use only the current active format, including while the comparison is open.
+- [x] One click copies the selected export and reports success or clipboard failure.
+- [x] One click downloads `<tool>-values.yaml`. The optional rendered view also offers `<tool>-manifests.yaml` and, for Argo CD, `argo-cd-crds.yaml`.
+- [x] The Helm values export remains available while the rendered view or comparison is open.
 - [x] Validation warnings and errors leave both actions available whenever generated content exists.
 - [x] Both actions work without a live cluster or Git credentials.
 - [x] The Argo CD manifests file includes the namespace and Redis initialization Job with its permissions. It explains why the Job must run before dependent workloads start.

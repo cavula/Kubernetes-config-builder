@@ -98,6 +98,103 @@ func fieldDescription(id resourceID, path []string, schema schemaObject, inherit
 	return "“" + label + "” is part of the configuration for this " + id.Kind + "."
 }
 
+// Reasons summarize the Kubernetes API reference and workload guidance.
+func fieldWhy(id resourceID, path []string, value *yaml.Node, description string) string {
+	key := path[len(path)-1]
+	if len(path) == 1 {
+		switch key {
+		case "apiVersion":
+			switch id.APIVersion {
+			case "apps/v1":
+				return "Use apps/v1 because it is the stable Kubernetes API that manages " + id.Kind + " workloads."
+			case "v1":
+				return "Use v1 because " + id.Kind + " is provided by the stable core Kubernetes API."
+			default:
+				return "Use " + id.APIVersion + " because it is the stable API group and version that provides " + id.Kind + "."
+			}
+		case "kind":
+			if purpose := manifestSectionNotes[id.Kind]; purpose != "" {
+				return purpose
+			}
+			return description
+		case "metadata":
+			return "Give this " + id.Kind + " a stable identity so Kubernetes can find it and reconcile later applies."
+		case "spec":
+			return "Declare the desired configuration so Kubernetes can reconcile the actual " + id.Kind + " against it."
+		}
+	}
+	switch key {
+	case "labels":
+		return "Keep labels consistent so selectors can match the intended Pods and tooling can identify the release."
+	case "namespace":
+		if len(path) == 2 && path[0] == "metadata" {
+			return "Keep the release’s namespaced resources in " + value.Value + " so their names and permissions are scoped together."
+		}
+	case "name":
+		if len(path) == 2 && path[0] == "metadata" {
+			return "Use the chart-generated name " + value.Value + " so Kubernetes and any resources that reference it agree on its identity."
+		}
+	case "readinessProbe":
+		return "Keep this Pod out of Service traffic until the container can serve requests."
+	case "livenessProbe":
+		return "Let the kubelet restart a container that stops responding to its health check."
+	case "startupProbe":
+		return "Give the container time to start before liveness and readiness checks take over."
+	case "securityContext":
+		return "Constrain the identity and privileges of this workload so it runs with the access it needs."
+	case "resources":
+		return "Give the scheduler capacity requirements and set bounds on runtime resource use where limits are configured."
+	case "requests":
+		return "Reserve capacity when Kubernetes schedules this workload."
+	case "limits":
+		return "Bound resource use so this container cannot consume more than the configured limits."
+	case "ports":
+		return "Declare the endpoints this component exposes so clients, Services, or probes can target the intended port."
+	case "storage":
+		return "Request this capacity so the workload has space for its persistent data."
+	case "replicas":
+		return "Keep " + value.Value + " replicas running to meet this configuration’s availability and capacity target."
+	case "runAsNonRoot":
+		if value.Value == "true" {
+			return "Require a non-root identity so the container cannot start with root privileges."
+		}
+	case "runAsUser", "runAsGroup":
+		return "Use the chart’s numeric identity (" + value.Value + ") so process and file permissions are predictable."
+	case "readOnlyRootFilesystem":
+		if value.Value == "true" {
+			return "Keep the root filesystem read-only to limit where the container can write."
+		}
+	case "allowPrivilegeEscalation":
+		if value.Value == "false" {
+			return "Prevent the process from gaining privileges beyond those of its parent."
+		}
+	case "initialDelaySeconds":
+		return "Wait " + value.Value + " seconds after startup before the probe starts checking the container."
+	case "periodSeconds":
+		return "Run this probe every " + value.Value + " seconds to detect a health change."
+	case "timeoutSeconds":
+		return "Limit each health check to " + value.Value + " seconds so a stalled endpoint can count as a failed probe."
+	case "targetPort":
+		return "Send Service traffic to port " + value.Value + " on the selected Pods."
+	case "containerPort":
+		return "Document port " + value.Value + " as an endpoint exposed by this container."
+	case "mountPath":
+		return "Make the mounted volume available at " + value.Value + " so the container can read or write it there."
+	case "volumeMounts":
+		return "Connect these container paths to Pod volumes so configuration or persistent data is available to the workload."
+	case "matchLabels":
+		return "Match these labels so the controller manages only the intended Pods."
+	case "image":
+		return "Run the implementation and version named by this pinned chart image reference."
+	case "hostNetwork":
+		if value.Value == "true" {
+			return "Use the node network namespace so this Pod can access the node’s network interfaces directly."
+		}
+		return "Keep the Pod on its own network namespace to avoid sharing the node’s network stack."
+	}
+	return description
+}
+
 func manifestFieldHover(manifest, schemaDir, version string, line int) string {
 	start := 1
 	for _, document := range strings.Split(manifest, "\n---\n") {
@@ -156,7 +253,7 @@ func collectFieldNotes(node *yaml.Node, resource manifestResource, root, schema 
 			}
 			fieldPath := append(path, key.Value)
 			resolved := resolveSchema(root, field)
-			note := fieldDescription(resource.id, fieldPath, resolved, parentNote)
+			note := fieldWhy(resource.id, fieldPath, value, fieldDescription(resource.id, fieldPath, resolved, parentNote))
 			notes[resource.start+key.Line-1] = note
 			childContext := parentNote
 			if _, described := resolved["description"].(string); described || len(fieldPath) == 1 {

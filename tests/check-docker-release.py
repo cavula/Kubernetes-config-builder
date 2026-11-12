@@ -37,3 +37,7 @@ for version in ("1.35", "1.36", "1.37"):
         result = json.loads(request("/api/validate", config))
         assert result["status"] == "passed", f"{tool} / {version}: {result}"
         print(f"{tool} / Kubernetes {version}: rendered and validated")
+
+
+export = json.loads(request("/api/export", {"tool": "prometheus", "kubernetesVersion": "1.37", "values": ""}))
+assert "kind: Namespace" in export["manifests"] and "# Why: Use apps/v1 because" in export["manifests"]

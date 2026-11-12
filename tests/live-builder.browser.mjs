@@ -108,6 +108,28 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     }
     await manifestHover.waitFor();
 
+    async function download(label) {
+      const pending = page.waitForEvent('download');
+      await page.getByRole('button', { name: label }).click();
+      const file = await pending;
+      const stream = await file.createReadStream();
+      const chunks = [];
+      for await (const chunk of stream) chunks.push(chunk);
+      return { name: file.suggestedFilename(), text: Buffer.concat(chunks).toString() };
+    }
+
+    await chooser.selectOption('argo-cd');
+    await formatControl.selectOption('manifests');
+    const values = await download('Download Helm values');
+    assert.equal(values.name, 'argo-cd-values.yaml');
+    assert.match(values.text, /argocd admin initial-password/);
+    const workloads = await download('Download explained manifests');
+    assert.match(workloads.text, /# Why: Use apps\/v1 because/);
+    assert.match(workloads.text, /REQUIRED IF you enable/);
+    assert.doesNotMatch(workloads.text, /^kind: CustomResourceDefinition$/m);
+    const schemas = await download('Download CRD schemas');
+    assert.match(schemas.text, /^kind: CustomResourceDefinition$/m);
+
     console.log(`All ${elapsed.length} option edits updated the preview in under one second. Slowest ${Math.max(...elapsed).toFixed(0)} ms.`);
   } finally {
     await browser.close();

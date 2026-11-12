@@ -149,10 +149,11 @@ func renderLoadedChart(ctx context.Context, chart *chartv2.Chart, pin chartPin, 
 	if req.Tool == "argo-cd" {
 		return commentManifestSections(argoCDManifests(rendered, pin.namespace)), nil
 	}
+	manifest := rendered.Manifest
 	if req.Tool == "prometheus" && pin.version == "29.45.1" {
-		return commentManifestSections(commentReloaderImages(rendered.Manifest)), nil
+		manifest = commentReloaderImages(manifest)
 	}
-	return commentManifestSections(rendered.Manifest), nil
+	return commentManifestSections(namespaceManifest(pin.namespace) + manifest), nil
 }
 
 func commentReloaderImages(manifest string) string {
@@ -173,12 +174,16 @@ func commentReloaderImages(manifest string) string {
 	return output.String()
 }
 
+func namespaceManifest(namespace string) string {
+	return fmt.Sprintf("---\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace)
+}
+
 func argoCDManifests(rendered *release.Release, namespace string) string {
 	var output strings.Builder
 	output.WriteString("# Apply this file with: kubectl apply --server-side -f argo-cd-manifests.yaml\n")
 	output.WriteString("# Server-side apply is required because client-side apply stores a copy in an annotation.\n")
 	output.WriteString("# Argo CD's large CRDs exceed Kubernetes' 256 KiB annotation limit.\n")
-	fmt.Fprintf(&output, "---\n# Namespace for the Argo CD workloads and Redis initialization.\napiVersion: v1\nkind: Namespace\nmetadata:\n  name: %s\n", namespace)
+	output.WriteString(namespaceManifest(namespace))
 	for _, hook := range rendered.Hooks {
 		if !slices.Contains(hook.Events, release.HookPreInstall) ||
 			!strings.HasPrefix(hook.Path, "argo-cd/templates/redis-secret-init/") {
@@ -235,6 +240,27 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 		if _, err := io.WriteString(w, manifest); err != nil {
+			log.Print(err)
+		}
+	})
+
+	mux.HandleFunc("POST /api/export", func(w http.ResponseWriter, r *http.Request) {
+		req, ok := decodeRenderRequest(w, r)
+		if !ok {
+			return
+		}
+		manifest, err := render(r.Context(), *chartDir, req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		result, err := explainExport(manifest, *schemaDir, req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(result); err != nil {
 			log.Print(err)
 		}
 	})

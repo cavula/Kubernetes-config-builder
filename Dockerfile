@@ -5,7 +5,7 @@ RUN npm ci
 COPY frontend/ ./
 COPY templates/ /src/templates/
 COPY security/accepted-risks.json /src/security/
-COPY backend/prometheus-arm64-values.json /src/backend/
+COPY backend/prometheus-arm64-values.json backend/export-guides.json /src/backend/
 RUN npm run build
 
 FROM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS backend

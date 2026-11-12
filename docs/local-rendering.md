@@ -37,7 +37,7 @@ Place native schemas in the kubeconform catalog layout, such as `v1.37.0-standal
 
 The builder runs validation automatically. Missing local tools or schemas appear as incomplete checks. Rendering and validation use local files and do not connect to a cluster.
 
-Argo CD plain YAML includes its namespace and the Redis initialization Job, service account, role, and role binding from the pinned chart. Apply the entire file with `kubectl apply --server-side -f argo-cd-manifests.yaml`. Server-side apply avoids the client-side annotation size limit for Argo CD’s large CRDs. Kubernetes retries the dependent containers until the Job creates the Redis Secret.
+Argo CD plain YAML includes its namespace and the Redis initialization Job, service account, role, and role binding from the pinned chart. Apply `argo-cd-crds.yaml` first and then `argo-cd-manifests.yaml` with `kubectl apply --server-side -f`. Server-side apply avoids the client-side annotation size limit for Argo CD’s large CRDs. Kubernetes retries the dependent containers until the Job creates the Redis Secret.
 
 ## Local K3s deploy checks
 

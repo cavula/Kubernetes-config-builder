@@ -6,7 +6,21 @@ A local dashboard for building and learning Kubernetes configurations. Choose K3
 
 Edit settings beside a live Helm values or Kubernetes manifest preview. Compare a Helm option with the YAML it changes, check diagnostics from Helm lint and kubeconform, and copy or download the active format. A live cluster is only needed for deployment checks.
 
-## Run locally
+## Run with Docker
+
+1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with Compose.
+2. Download **Source code (zip)** from the [v0.1.0 release](https://github.com/cavula/Kubernetes-config-builder/releases/tag/v0.1.0), extract it, and open a terminal in the extracted folder.
+3. Run:
+
+   ```sh
+   docker compose up --build
+   ```
+
+4. Open [http://localhost:8080](http://localhost:8080). Press **Ctrl+C** in the terminal to stop the dashboard.
+
+The first build needs internet access. Docker verifies the pinned chart archives and Kubernetes schemas during the build and includes them in the resulting image. The dashboard runs locally without a Kubernetes cluster or developer tools.
+
+## Run from source for development
 
 Install Node.js 26.13.1, Go 1.27.4, Helm, kubeconform, and Python 3. If you use nvm, run `nvm install` and `nvm use` from the project root. Download the verified chart archives and pinned schemas once.
 

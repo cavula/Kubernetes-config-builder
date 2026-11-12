@@ -113,3 +113,20 @@ jobs:
         run: |
           (cd backend && go run . -list-images) > "$RUNNER_TEMP/chart-images.txt"
           ./tests/scan-chart-images.sh "$RUNNER_TEMP/chart-images.txt" "$RUNNER_TEMP/chart-image-reports"
+
+  package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Build and start the Docker distribution
+        run: docker compose up -d --build
+      - name: Check the UI and offline validation
+        run: python3 tests/check-docker-release.py
+      - name: Collect logs and stop the distribution
+        if: always()
+        run: |
+          docker compose logs --no-color
+          docker compose down

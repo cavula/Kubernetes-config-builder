@@ -41,7 +41,7 @@ def fetch(url):
 def save_schema(path, schema):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(schema) + "\n", encoding="utf-8")
+    temporary.write_text(json.dumps(schema, sort_keys=True) + "\n", encoding="utf-8")
     temporary.replace(path)
 
 

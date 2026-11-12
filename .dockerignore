@@ -1,0 +1,6 @@
+.git
+**/.runtime
+.runtime
+**/node_modules
+**/dist
+**/__pycache__

@@ -129,7 +129,7 @@ Spec driven development. Every feature starts as a written spec with clear input
 
 ## Open Questions
 
-The five MVP specs and builder options are approved. Development starts with cluster and tool selection.
+Hosting remains an open question. Where should a hosted dashboard run, and who should be able to access it?
 
 ## Instructions for the Coding Agent
 
@@ -184,3 +184,4 @@ This file and /specs are the single source of truth. Chat instructions never ove
 | 2026-11-11 | Include a purpose comment for each rendered Kubernetes resource and expose those explanations on kind fields. Run live default and resource-changing fixtures in fresh dedicated K3s clusters across all three minors. | Partial manifest comments and incomplete deploy matrix | Live builder, deployment checks |
 | 2026-11-11 | Use the security acceptance criterion “Our own dependencies have no high or critical issues, and upstream image findings are tracked as accepted risks with a review date.” | Requiring a zero-finding scan across application dependencies and upstream images | MVP acceptance, security review |
 | 2026-11-11 | Run the committed browser tests in CI. Explain rendered YAML fields using pinned Kubernetes schema descriptions and contextual notes for chart-defined entries. | Manual browser checks and hover explanations limited to values and selected manifest lines | Live builder, tests, CI |
+| 2026-11-12 | Package v0.1.0 as a local Docker Compose release with verified charts and schemas. Reopen the hosting decision. | Developer-tool setup as the only local run path | Deploy, README, CI |

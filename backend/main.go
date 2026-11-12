@@ -207,6 +207,8 @@ func decodeRenderRequest(w http.ResponseWriter, r *http.Request) (renderRequest,
 }
 
 func main() {
+	listen := flag.String("listen", "127.0.0.1:8080", "HTTP listen address")
+	webDir := flag.String("web", "", "directory containing the built frontend")
 	chartDir := flag.String("charts", "../.runtime/charts", "directory containing the pinned Helm chart archives")
 	schemaDir := flag.String("schemas", "../.runtime/schemas", "directory containing local Kubernetes and custom resource schemas")
 	listImages := flag.Bool("list-images", false, "list images in the supported chart configurations and exit")
@@ -304,7 +306,11 @@ func main() {
 		}
 	})
 
-	server := &http.Server{Addr: "127.0.0.1:8080", Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	if *webDir != "" {
+		mux.Handle("GET /", http.FileServer(http.Dir(*webDir)))
+	}
+
+	server := &http.Server{Addr: *listen, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("Chart renderer listening on %s", server.Addr)
 	log.Fatal(server.ListenAndServe())
 }

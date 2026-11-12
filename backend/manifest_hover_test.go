@@ -17,7 +17,7 @@ func TestManifestHoverUsesSchemaAndExplainsCustomKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	schema := `{
-	  "properties": {"metadata": {"$ref":"#/definitions/metadata"}, "data":{"additionalProperties":{"type":"string"}}},
+	  "properties": {"metadata": {"$ref":"#/definitions/metadata"}, "data":{"additionalProperties":{"type":"string"}},"immutable":{"description":"Prevents later updates to the configuration data."}},
 	  "definitions": {"metadata":{"properties":{"name":{"description":"Names this resource within its namespace."}}}}
 	}`
 	if err := os.WriteFile(filepath.Join(dir, "configmap-v1.json"), []byte(schema), 0600); err != nil {
@@ -33,9 +33,10 @@ metadata:
 data:
   settings.yaml: |
     mode: default
+immutable: true
 `
 	notes := manifestHoverNotes(manifest, root, "1.37")
-	for line, expected := range map[int]string{5: "Names this resource", 7: "Label “app”", 9: "Configuration entry “settings.yaml”", 10: "Configuration entry “settings.yaml”"} {
+	for line, expected := range map[int]string{5: "chart-generated name settings", 7: "Label “app”", 9: "Configuration entry “settings.yaml”", 10: "Configuration entry “settings.yaml”", 11: "Prevents later updates"} {
 		if !strings.Contains(notes[line], expected) {
 			t.Errorf("line %d: got %q, want %q", line, notes[line], expected)
 		}

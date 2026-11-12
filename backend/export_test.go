@@ -48,6 +48,14 @@ func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
 					}
 				}
 				check(&doc)
+				if resource.id.Kind == "Secret" && (resource.id.Name == "argocd-secret" || resource.id.Name == "argocd-notifications-secret") {
+					document := strings.Join(resource.lines, "\n")
+					for _, guidance := range []string{"# REQUIRED IF", "Never commit real secrets to Git", "https://argo-cd.readthedocs.io/"} {
+						if !strings.Contains(document, guidance) {
+							t.Errorf("%s lacks credential guidance %q", resource.id.Name, guidance)
+						}
+					}
+				}
 			}
 			if tool == "argo-cd" {
 				if !strings.Contains(export.CRDs, "A CustomResourceDefinition") ||

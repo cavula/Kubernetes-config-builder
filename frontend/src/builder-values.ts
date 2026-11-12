@@ -126,3 +126,13 @@ export function previewValues(catalog: Catalog, values: Record<string, Value>) {
   writeFields(root, 0);
   return { text: lines.join('\n') + '\n', notes, fieldLines };
 }
+
+
+export function describeValuesPaths(preview: ReturnType<typeof previewValues>) {
+  const lines = preview.text.split('\n');
+  for (const [path, line] of preview.fieldLines) {
+    const indent = lines[line - 2].match(/^ */)?.[0] ?? '';
+    lines[line - 2] = `${indent}# ${path}: ${preview.notes.get(line)}`;
+  }
+  return lines.join('\n');
+}

@@ -122,6 +122,9 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     await formatControl.selectOption('manifests');
     const values = await download('Download Helm values');
     assert.equal(values.name, 'argo-cd-values.yaml');
+    assert.match(values.text, /^# helm repo add argo /);
+    assert.match(values.text, /helm install argo-cd argo\/argo-cd --version 10\.17\.1/);
+    assert.match(values.text, /Indentation groups settings/);
     assert.match(values.text, /argocd admin initial-password/);
     const workloads = await download('Download explained manifests');
     assert.match(workloads.text, /# Why: Use apps\/v1 because/);

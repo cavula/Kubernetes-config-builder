@@ -1,7 +1,8 @@
+import deploymentCommands from '../../backend/deployment-commands.json';
 import exportGuides from '../../backend/export-guides.json';
 import acceptedRisks from '../../security/accepted-risks.json';
 import { useEffect, useState } from 'react';
-import { catalogForChart, defaultValues, dependencyHint, previewValues, type catalogs, type Value } from './builder-values';
+import { catalogForChart, defaultValues, dependencyHint, describeValuesPaths, previewValues, type catalogs, type Value } from './builder-values';
 import { Preview } from './Preview';
 import { ChartComparison } from './ChartComparison';
 import { ExportActions } from './ExportActions';
@@ -63,7 +64,11 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
   }
 
   const currentManifest = manifest.key === renderKey ? manifest.current : '';
-  const valuesExport = exportGuides[tool].map(line => '# ' + line).join('\n') + '\n\n' + currentPreview.text;
+  const valuesExport = [
+    ...deploymentCommands[tool].helm,
+    'Indentation groups settings under their parent keys. A dotted name shows the full path to a setting.',
+    ...exportGuides[tool],
+  ].map(line => '# ' + line).join('\n') + '\n\n' + describeValuesPaths(currentPreview);
   async function loadExport(part: 'manifests' | 'crds') {
     const response = await fetch('/api/export', {
       method: 'POST',

@@ -21,7 +21,8 @@ func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(export.Manifests, "# After install:") ||
+			if !strings.HasPrefix(export.Manifests, "# kubectl apply --server-side -f "+tool) ||
+				!strings.Contains(export.Manifests, "# After install:") ||
 				!strings.Contains(export.Manifests, "# Why: Use apps/v1 because") {
 				t.Fatal("missing access or API-version explanation")
 			}

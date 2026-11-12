@@ -12,6 +12,9 @@ import (
 //go:embed export-guides.json
 var exportGuideJSON []byte
 
+//go:embed deployment-commands.json
+var deploymentCommandsJSON []byte
+
 type explainedExport struct {
 	Manifests string `json:"manifests"`
 	CRDs      string `json:"crds"`
@@ -26,13 +29,16 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 	if err != nil {
 		return explainedExport{}, err
 	}
+	var commands map[string]struct{ YAML []string }
+	if err := json.Unmarshal(deploymentCommandsJSON, &commands); err != nil {
+		return explainedExport{}, err
+	}
 	var workloads, crds strings.Builder
+	for _, command := range commands[req.Tool].YAML {
+		fmt.Fprintln(&workloads, "# "+command)
+	}
 	for _, line := range guides[req.Tool] {
 		fmt.Fprintln(&workloads, "# "+line)
-	}
-	if req.Tool == "argo-cd" {
-		workloads.WriteString("# First run: kubectl apply --server-side -f argo-cd-crds.yaml\n")
-		workloads.WriteString("# Then run: kubectl apply --server-side -f argo-cd-manifests.yaml\n")
 	}
 	workloads.WriteString("# Field sources: the pinned chart and Kubernetes API schemas. https://kubernetes.io/docs/reference/kubernetes-api/\n")
 	crds.WriteString("# A CustomResourceDefinition registers a new resource type and its validation schema. Apply this file first with kubectl apply --server-side -f argo-cd-crds.yaml to avoid the annotation size limit.\n")

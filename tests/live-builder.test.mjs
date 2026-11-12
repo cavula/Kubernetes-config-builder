@@ -68,3 +68,12 @@ test('the ARM64 workaround is scoped to Prometheus chart 29.45.1', () => {
   const catalog = catalogForChart('prometheus', '30.0.0');
   assert.doesNotMatch(previewValues(catalog, defaultValues(catalog)).text, /v0\.95\.2/);
 });
+
+test('Helm export comments name the full settings without changing values', async () => {
+  const { describeValuesPaths } = await import('../frontend/src/builder-values.ts');
+  const preview = previewValues(catalogs.prometheus, defaultValues(catalogs.prometheus));
+  const explained = describeValuesPaths(preview);
+  assert.match(explained, /# server\.global\.scrape_interval: How often Prometheus/);
+  const settings = text => text.split('\n').filter(line => !line.trimStart().startsWith('#'));
+  assert.deepEqual(settings(explained), settings(preview.text));
+});

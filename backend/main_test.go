@@ -90,6 +90,10 @@ func TestApprovedOptionsAffectPinnedCharts(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			changes, err := manifestChanges(output, baseline)
+			if err != nil || len(changes) == 0 {
+				t.Fatalf("expected mapped YAML lines for %s: %v", tt.setting, err)
+			}
 			expectedBaseline, expectedOutput := baseline, output
 			if tt.setting == "persistence" {
 				_, expectedBaseline, _ = strings.Cut(baseline, "# Source: prometheus/templates/deploy.yaml\n")

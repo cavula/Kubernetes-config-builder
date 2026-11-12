@@ -1,3 +1,4 @@
+import acceptedRisks from '../../security/accepted-risks.json';
 import { useEffect, useState } from 'react';
 import { catalogForChart, defaultValues, dependencyHint, previewValues, type catalogs, type Value } from './builder-values';
 import { Preview } from './Preview';
@@ -12,6 +13,8 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
   kubernetesVersion: string;
 }) {
   const catalog = catalogForChart(tool, chartVersion);
+  const hasAcceptedRisks = acceptedRisks.charts[tool].pinnedChart === chartVersion &&
+    Object.values(acceptedRisks.images).some(entry => entry.tool === tool);
   const [{ current, previous }, setValues] = useState(() => {
     const defaults = defaultValues(catalog);
     return { current: defaults, previous: defaults };
@@ -109,6 +112,13 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
         })}
       </section>
       <div className="builder-output">
+        {hasAcceptedRisks && (
+          <p className="security-note">
+            <strong>Chart image security note.</strong> The pinned {tool === 'argo-cd' ? 'Argo CD' : 'Prometheus'} chart
+            includes images with known vulnerabilities that remain in the latest official chart reviewed.
+            Review date <time dateTime={acceptedRisks.reviewDate}>{acceptedRisks.reviewDate}</time>.
+          </p>
+        )}
         <ValidationStatus tool={tool} kubernetesVersion={kubernetesVersion} values={currentPreview.text} />
         <label>
           Preview format

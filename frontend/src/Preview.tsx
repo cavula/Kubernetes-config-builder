@@ -5,12 +5,14 @@ import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
 type Content = { text: string; notes: Map<number, string> };
+export type LineRange = { start: number; end: number };
 
-export function Preview({ current, previous, focusLine, revealChanges = false }: {
+export function Preview({ current, previous, focusLine, focusRange, highlightRanges }: {
   current: Content;
   previous: Content;
   focusLine?: number;
-  revealChanges?: boolean;
+  focusRange?: LineRange;
+  highlightRanges?: LineRange[];
 }) {
   const container = useRef<HTMLDivElement>(null);
   const models = useRef<{ original: monaco.editor.ITextModel; modified: monaco.editor.ITextModel }>(null);
@@ -57,23 +59,27 @@ export function Preview({ current, previous, focusLine, revealChanges = false }:
   useEffect(() => {
     const editor = editorRef.current!;
     const modified = editor.getModifiedEditor();
-    const decorations = modified.createDecorationsCollection();
+    const ranges = highlightRanges ?? [];
+    const decorations = modified.createDecorationsCollection(
+      ranges.map(({ start, end }) => ({
+        range: new monaco.Range(start, 1, end, 1),
+        options: { isWholeLine: true, className: 'comparison-value-line' },
+      })),
+    );
     if (focusLine !== undefined) {
-      decorations.set([{
+      decorations.append([{
         range: new monaco.Range(focusLine, 1, focusLine, 1),
         options: { isWholeLine: true, className: 'comparison-value-line' },
       }]);
       modified.revealLineInCenter(focusLine);
     }
-    const listener = revealChanges ? editor.onDidUpdateDiff(() => {
-      const firstChange = editor.getLineChanges()?.[0];
-      if (firstChange) modified.revealLineInCenter(Math.max(1, firstChange.modifiedStartLineNumber));
-    }) : undefined;
-    return () => {
-      listener?.dispose();
-      decorations.clear();
-    };
-  }, [current.text, previous.text, focusLine, revealChanges]);
+    if (focusRange) {
+      const range = new monaco.Range(focusRange.start, 1, focusRange.end, 1);
+      modified.revealRangeInCenter(range);
+      modified.setPosition({ lineNumber: focusRange.start, column: 1 });
+    }
+    return () => decorations.clear();
+  }, [current.text, previous.text, focusLine, focusRange, highlightRanges]);
 
   return <div className="preview" ref={container} />;
 }

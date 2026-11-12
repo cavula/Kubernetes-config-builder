@@ -96,7 +96,7 @@ Spec driven development. Every feature starts as a written spec with clear input
 **YAML and Helm**
 
 - [x] A switch shows the same setup as plain YAML or as Helm values.
-- [ ] A side by side view shows which Helm value produced which YAML lines.
+- [x] A side by side view shows which Helm value produced which YAML lines.
 
 **Validation**
 
@@ -174,3 +174,7 @@ This file and /specs are the single source of truth. Chat instructions never ove
 | 2026-11-11 | Run Helm lint and strict kubeconform offline on edits. Report missing tools or schemas as incomplete. Run both validators and the frontend and Go tests on every push. Include chart hooks in the CI manifest check. | Manual checks and hook-free CI validation | Validation, CI |
 | 2026-11-11 | Pin the [schema catalog](https://github.com/yannh/kubernetes-json-schema/commit/9e1cd3c3b22e6432cbc5615a5a930f8268f14bf1) and the Kubernetes OpenAPI definitions for [1.35](https://github.com/kubernetes/kubernetes/commit/66452049f3d692768c39c797b21b793dce80314e), [1.36](https://github.com/kubernetes/kubernetes/commit/ecf6decece6a6de25a57aad9ba90b6ce580f6f78), and [1.37](https://github.com/kubernetes/kubernetes/commit/f54c212e3a2f75d674b717a9b29052b20b60aefc) to commits. | Mutable schema catalog branch and release-tag references | Offline validation, CI |
 | 2026-11-11 | Run deployment checks in isolated k3d clusters for K3s 1.35.10, 1.36.6, and 1.37.2 using project-local kubeconfigs. Put the required server-side apply command and CRD annotation limit at the top of the Argo CD YAML. | Single-minor live checks and apply instructions only in documentation | K3s tests, Argo CD export |
+| 2026-11-11 | Fail CI on high or critical vulnerabilities from npm audit and Trivy. Derive the image inventory from verified chart renders across supported Kubernetes minors and Boolean setting combinations, and scan Linux AMD64 and ARM64. Report findings before changing any pins. | Manual security review without CI gates | Security review, CI |
+| 2026-11-11 | Match rendered YAML resources by API version, kind, namespace, and name. Show exact current and comparison line ranges for changed, added, and removed resources. | One diff over the entire manifest stream | Helm-to-YAML comparison |
+| 2026-11-11 | Pin transitive DOMPurify to 3.4.17 for [GHSA-cg2g-xh64-v4q7](https://github.com/advisories/GHSA-cg2g-xh64-v4q7) and [GHSA-mrv2-3pqr-j5jr](https://github.com/advisories/GHSA-mrv2-3pqr-j5jr). Update golang.org/x/net to v0.62.0 for [CVE-2026-78661](https://avd.aquasec.com/nvd/cve-2026-78661). High and critical application dependency findings always fail CI. | DOMPurify 3.4.15 and x/net v0.60.0 | npm, Go, CI |
+| 2026-11-11 | Review official chart releases before changing chart pins, with no per-image upgrades for security findings. Prometheus 29.47.1 and Argo CD 10.18.0 retain the findings on both architectures. Keep current pins pending approval. Report exact accepted image findings in CI and display a note in the app. Review on 2026-12-11. Unaccepted or expired findings still fail CI. | Blocking every image finding, including those without an official chart fix | Security review, CI, chart exports |

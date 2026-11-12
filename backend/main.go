@@ -80,9 +80,10 @@ func verifiedArchive(chartDir, filename string) ([]byte, error) {
 }
 
 type renderRequest struct {
-	Tool              string `json:"tool"`
-	KubernetesVersion string `json:"kubernetesVersion"`
-	Values            string `json:"values"`
+	Tool              string  `json:"tool"`
+	KubernetesVersion string  `json:"kubernetesVersion"`
+	Values            string  `json:"values"`
+	AlternateValues   *string `json:"alternateValues,omitempty"`
 }
 
 func render(ctx context.Context, chartDir string, req renderRequest) (string, error) {
@@ -187,7 +188,16 @@ func decodeRenderRequest(w http.ResponseWriter, r *http.Request) (renderRequest,
 func main() {
 	chartDir := flag.String("charts", "../.runtime/charts", "directory containing the pinned Helm chart archives")
 	schemaDir := flag.String("schemas", "../.runtime/schemas", "directory containing local Kubernetes and custom resource schemas")
+	listImages := flag.Bool("list-images", false, "list images in the supported chart configurations and exit")
 	flag.Parse()
+	if *listImages {
+		images, err := chartImages(context.Background(), *chartDir, "../templates")
+		if err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println(strings.Join(images, "\n"))
+		return
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /api/render", func(w http.ResponseWriter, r *http.Request) {
@@ -202,6 +212,41 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 		if _, err := io.WriteString(w, manifest); err != nil {
+			log.Print(err)
+		}
+	})
+
+	mux.HandleFunc("POST /api/compare", func(w http.ResponseWriter, r *http.Request) {
+		req, ok := decodeRenderRequest(w, r)
+		if !ok {
+			return
+		}
+		current, err := render(r.Context(), *chartDir, req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		prior := current
+		if req.AlternateValues != nil {
+			req.Values = *req.AlternateValues
+			prior, err = render(r.Context(), *chartDir, req)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+				return
+			}
+		}
+		changes, err := manifestChanges(current, prior)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		response := struct {
+			Current string           `json:"current"`
+			Prior   string           `json:"prior"`
+			Changes []resourceChange `json:"changes"`
+		}{current, prior, changes}
+		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log.Print(err)
 		}
 	})

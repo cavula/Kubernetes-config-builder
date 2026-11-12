@@ -47,3 +47,17 @@ For Prometheus, create the `monitoring` namespace if needed, then run `kubectl -
 GitHub Actions verifies chart checksums, runs the frontend and Go checks, and runs Helm lint and strict kubeconform across the supported Kubernetes versions on every push. You can also start CI manually from the Actions tab.
 
 The [MVP specs](specs/) and [Decision Log](AGENTS.md#decision-log) record acceptance criteria, implementation decisions, and remaining work.
+
+### Security checks
+
+CI fails on high or critical npm and Go findings. Image findings recorded in the [accepted risks file](security/accepted-risks.json) are reported through their review date. Unaccepted or expired findings fail CI. npm audit reads the frontend lockfile. Trivy scans the Go module and the images from both verified charts across supported Kubernetes minors and builder toggles. The image scan covers Linux AMD64 and ARM64 and includes the Argo CD initialization Job.
+
+To reproduce the image scan locally with Trivy installed, run from the project root after downloading the charts.
+
+```sh
+mkdir -p .runtime/security
+(cd backend && go run . -list-images) > .runtime/security/chart-images.txt
+./tests/scan-chart-images.sh .runtime/security/chart-images.txt .runtime/security/images
+```
+
+The script prints findings and writes per-image JSON reports to the directory you pass. An incomplete scan fails the check.

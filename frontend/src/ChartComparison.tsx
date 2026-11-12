@@ -1,9 +1,20 @@
 import { useEffect, useState } from 'react';
 import { comparisonValues, dependencyHint, previewValues, type Catalog, type Value } from './builder-values';
-import { Preview } from './Preview';
-import { renderChart } from './render-chart';
+import { Preview, type LineRange } from './Preview';
 
 const noNotes = new Map<number, string>();
+
+type Change = {
+  resource: { apiVersion: string; kind: string; namespace?: string; name: string };
+  type: 'added' | 'changed' | 'removed';
+  current?: LineRange;
+  prior?: LineRange;
+};
+type Comparison = { current: string; prior: string; changes: Change[] };
+
+function rangeLabel(range: LineRange) {
+  return range.start === range.end ? `line ${range.start}` : `lines ${range.start}–${range.end}`;
+}
 
 export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
   catalog: Catalog;
@@ -21,18 +32,24 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
   const alternateField = alternateLine === undefined ? '' : alternateText?.split('\n')[alternateLine - 1].trim();
   const currentText = current.text;
   const requestKey = JSON.stringify([tool, kubernetesVersion, path, currentText, alternateText]);
-  const [result, setResult] = useState<{ key: string; yaml?: string; baseline?: string; error?: string }>();
+  const [result, setResult] = useState<{ key: string; comparison?: Comparison; error?: string }>();
+  const [navigation, setNavigation] = useState<{ key: string; side: 'current' | 'prior'; range: LineRange }>();
 
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const currentRender = renderChart(tool, kubernetesVersion, currentText, controller.signal);
-        const alternateRender = alternateText
-          ? renderChart(tool, kubernetesVersion, alternateText, controller.signal)
-          : currentRender;
-        const [yaml, baseline] = await Promise.all([currentRender, alternateRender]);
-        if (!controller.signal.aborted) setResult({ key: requestKey, yaml, baseline });
+        const response = await fetch('/api/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tool, kubernetesVersion, values: currentText, alternateValues: alternateText }),
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(response.status === 422 ? (await response.text()).trim() : 'The local chart renderer is unavailable.');
+        }
+        const comparison: Comparison = await response.json();
+        if (!controller.signal.aborted) setResult({ key: requestKey, comparison });
       } catch (error) {
         if (!controller.signal.aborted) {
           setResult({ key: requestKey, error: error instanceof Error ? error.message : 'Could not render the chart.' });
@@ -46,6 +63,11 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
   }, [requestKey, tool, kubernetesVersion, currentText, alternateText]);
 
   const visible = result?.key === requestKey ? result : undefined;
+  const comparison = visible?.comparison;
+  const selected = navigation?.key === requestKey ? navigation : undefined;
+  const side = selected?.side ?? 'current';
+  const ranges = comparison?.changes.flatMap(change => change[side] ? [change[side]] : []);
+  const rendered = { text: comparison?.[side] ?? '', notes: noNotes };
   const hint = dependencyHint(catalog, option, values);
   return (
     <div className="chart-comparison" aria-label="Helm to YAML comparison">
@@ -58,12 +80,12 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
       {hint ? <p>{hint}</p> : (
         <p>
           Comparing <code>{path}</code> with <code>{alternateField}</code>.
-          Green marks current YAML. Red marks YAML from the comparison, including removed resources.
+          Select a line range to jump to its YAML.
         </p>
       )}
       {!visible && <p role="status">Rendering comparison…</p>}
       {visible?.error && <p role="alert">{visible.error}</p>}
-      {visible?.yaml !== undefined && visible.yaml === visible.baseline && !hint && (
+      {comparison?.changes.length === 0 && !hint && (
         <p role="status">This option produced no YAML changes for the current configuration.</p>
       )}
       <div className="comparison-panes">
@@ -72,16 +94,32 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
           <Preview current={current} previous={current} focusLine={current.fieldLines.get(path)} />
         </div>
         <div>
-          <h2>Rendered YAML</h2>
-          {visible?.yaml !== undefined && (
-            <Preview
-              current={{ text: visible.yaml, notes: noNotes }}
-              previous={{ text: visible.baseline ?? visible.yaml, notes: noNotes }}
-              revealChanges
-            />
+          <h2>{side === 'current' ? 'Rendered YAML' : 'YAML with comparison value'}</h2>
+          {comparison && (
+            <Preview current={rendered} previous={rendered} highlightRanges={ranges} focusRange={selected?.range} />
           )}
         </div>
       </div>
+      {!!comparison?.changes.length && (
+        <ul className="comparison-ranges" aria-label="Affected YAML ranges">
+          {comparison.changes.map(({ resource, type, current, prior }, index) => (
+            <li key={index}>
+              <strong>{resource.kind} {resource.namespace ? `${resource.namespace}/` : ''}{resource.name}</strong>
+              {' '}({type})
+              {current && (
+                <button type="button" onClick={() => setNavigation({ key: requestKey, side: 'current', range: { ...current } })}>
+                  Current {rangeLabel(current)}
+                </button>
+              )}
+              {prior && (
+                <button type="button" onClick={() => setNavigation({ key: requestKey, side: 'prior', range: { ...prior } })}>
+                  Comparison {rangeLabel(prior)}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

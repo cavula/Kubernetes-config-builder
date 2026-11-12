@@ -8,7 +8,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
         with:
@@ -66,3 +66,30 @@ jobs:
                 kubeconform -strict -summary -kubernetes-version "$version" -schema-location .runtime/schemas
             done
           done
+      - name: Audit npm dependencies
+        if: ${{ !cancelled() }}
+        working-directory: frontend
+        run: npm audit --package-lock-only --audit-level=high
+      - name: Install verified Trivy scanner
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP"
+          archive=trivy_0.76.2_Linux-64bit.tar.gz
+          curl --fail --silent --show-error --location --remote-name "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/$archive"
+          printf '%s  %s\n' bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf "$archive" | sha256sum --check
+          mkdir -p trivy-bin
+          tar -xzf "$archive" -C trivy-bin trivy
+          echo "$RUNNER_TEMP/trivy-bin" >> "$GITHUB_PATH"
+      - name: Audit Go dependencies
+        if: ${{ !cancelled() }}
+        run: trivy fs --scanners vuln --pkg-types library --severity HIGH,CRITICAL --exit-code 1 --no-progress backend
+      - name: Test the image risk policy
+        if: ${{ !cancelled() }}
+        run: python3 tests/test_image_risk_policy.py
+      - name: Scan chart images on AMD64 and ARM64
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          (cd backend && go run . -list-images) > "$RUNNER_TEMP/chart-images.txt"
+          ./tests/scan-chart-images.sh "$RUNNER_TEMP/chart-images.txt" "$RUNNER_TEMP/chart-image-reports"

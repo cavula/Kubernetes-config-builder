@@ -14,6 +14,6 @@ Commented plain Kubernetes manifests or a commented Helm values file for the sam
 
 - [x] Switching formats preserves the cluster, tool and option values.
 - [ ] Rendering the Helm values with the same chart pin, release name, namespace and Kubernetes capabilities yields the same desired resources and field values as plain YAML, accounting for comments and formatting.
-- [ ] For each approved option, the comparison shows all affected YAML ranges. Added resources are linked to their current ranges and removed resources are identified using their prior YAML.
+- [x] For each approved option, the comparison shows all affected YAML ranges. Added resources are linked to their current ranges and removed resources are identified using their prior YAML.
 - [x] When a conditional option has no effect in the current configuration, the comparison explains why.
 - [x] The comparison keeps an explicit primary format for export.

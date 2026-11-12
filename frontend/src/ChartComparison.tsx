@@ -77,6 +77,7 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
         <select value={path} onChange={event => setPath(event.target.value)}>
           {catalog.options.map(entry => <option key={entry.path} value={entry.path}>{entry.label}</option>)}
         </select>
+        <small>Setting to trace to the generated resources. Example {catalog.options[0].label}.</small>
       </label>
       {hint ? <p>{hint}</p> : (
         <p>

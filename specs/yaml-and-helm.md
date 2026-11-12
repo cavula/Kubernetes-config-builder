@@ -16,4 +16,4 @@ Commented plain Kubernetes manifests or a commented Helm values file for the sam
 - [x] Rendering the Helm values with the same chart pin, release name, namespace and Kubernetes capabilities yields the same desired resources and field values as plain YAML, accounting for comments, formatting, and the namespaces created by the plain YAML bootstrap.
 - [x] For each approved option, the comparison shows all affected YAML ranges. Added resources are linked to their current ranges and removed resources are identified using their prior YAML.
 - [x] When a conditional option has no effect in the current configuration, the comparison explains why.
-- [x] The Helm values download remains the primary export in the comparison.
+- [x] The Template selection determines the copy and download format while the comparison is open.

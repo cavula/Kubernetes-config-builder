@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import { presets, type Preset } from './builder-values';
 import { Builder } from './Builder';
 import { kubernetesVersions, platform, selectConfiguration, tools } from './selection';
 import './style.css';
@@ -9,10 +10,14 @@ function App() {
     selectConfiguration(platform.id, kubernetesVersions[0], tools[0].id),
   );
 
+  const [preset, setPreset] = useState<Preset>('full');
+  const activePreset = configuration.tool.id === 'prometheus' ? preset : 'full';
+
   return (
     <main>
       <h1>Kubernetes Config Builder</h1>
-      <section aria-label="Configuration selection">
+      <section aria-labelledby="choose-preset" className="step configuration-selection">
+        <h2 id="choose-preset">1. Choose a preset</h2>
         <label>
           Platform
           <select value={platform.id} onChange={event => setConfiguration(
@@ -20,6 +25,7 @@ function App() {
           )}>
             <option value={platform.id}>{platform.name}</option>
           </select>
+          <small>Target cluster platform. Example K3s.</small>
         </label>
         <label>
           Kubernetes version
@@ -28,6 +34,7 @@ function App() {
           )}>
             {kubernetesVersions.map(version => <option key={version}>{version}</option>)}
           </select>
+          <small>Version running on your cluster. Example {kubernetesVersions[0]}.</small>
         </label>
         <label>
           Tool
@@ -36,10 +43,23 @@ function App() {
           )}>
             {tools.map(tool => <option key={tool.id} value={tool.id}>{tool.name}</option>)}
           </select>
+          <small>Chart to configure. Example Prometheus.</small>
         </label>
+        <label>
+          Preset
+          <select value={activePreset} onChange={event => setPreset(event.target.value as Preset)}>
+            {Object.entries(presets).filter(([id]) => configuration.tool.id === 'prometheus' || id === 'full')
+              .map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          </select>
+          <small>{configuration.tool.id === 'prometheus'
+            ? 'Start with the server alone or add monitoring components. Example Recommended.'
+            : 'Start with the official Argo CD chart settings. Example Full chart defaults.'}</small>
+        </label>
+        {configuration.tool.id === 'prometheus' && activePreset === 'recommended' && (
+          <small className="preset-description">Includes Alertmanager, kube-state-metrics, and node exporter. Enable Pushgateway for short-lived service-level batch jobs.</small>
+        )}
       </section>
-      <p aria-live="polite">{configuration.tool.name} chart <strong>{configuration.tool.chartVersion}</strong></p>
-      <Builder key={configuration.tool.id} tool={configuration.tool.id} chartVersion={configuration.tool.chartVersion} kubernetesVersion={configuration.kubernetesVersion} />
+      <Builder key={`${configuration.tool.id}/${activePreset}`} preset={activePreset} tool={configuration.tool.id} chartVersion={configuration.tool.chartVersion} kubernetesVersion={configuration.kubernetesVersion} />
     </main>
   );
 }

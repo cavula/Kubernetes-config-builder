@@ -136,3 +136,27 @@ export function describeValuesPaths(preview: ReturnType<typeof previewValues>) {
   }
   return lines.join('\n');
 }
+
+export const prometheusAddons = [
+  { path: 'alertmanager.enabled', label: 'Alertmanager' },
+  { path: 'kube-state-metrics.enabled', label: 'kube-state-metrics' },
+  { path: 'prometheus-node-exporter.enabled', label: 'Node exporter' },
+  { path: 'prometheus-pushgateway.enabled', label: 'Pushgateway' },
+] as const;
+
+export const presets = {
+  minimal: 'Minimal (Prometheus server only, best for learning)',
+  recommended: 'Recommended',
+  full: 'Full chart defaults',
+} as const;
+
+export type Preset = keyof typeof presets;
+
+export function presetValues(catalog: Catalog, preset: Preset) {
+  const values = defaultValues(catalog);
+  if (preset === 'minimal') {
+    for (const addon of prometheusAddons) values[addon.path] = false;
+  }
+  if (preset === 'recommended') values['prometheus-pushgateway.enabled'] = false;
+  return values;
+}

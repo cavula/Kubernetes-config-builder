@@ -12,8 +12,10 @@ const editsByTool = {
     ['Storage size', 'input', '4Gi'],
     ['CPU and memory', 'fieldset', '75m'],
     ['Persistent storage', 'check'],
-    ['Alertmanager', 'check'],
-    ['Kube-state-metrics', 'check'],
+    ['Enable Alertmanager', 'check'],
+    ['Enable kube-state-metrics', 'check'],
+    ['Enable Node exporter', 'check'],
+    ['Enable Pushgateway', 'check'],
   ],
   'argo-cd': [
     ['Server service type', 'select', 'NodePort'],
@@ -54,8 +56,24 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     });
 
     const currentVersion = () => page.evaluate(() => globalThis.testMonaco.getModels().at(-1)?.getVersionId());
-    const chooser = page.locator('section[aria-label="Configuration selection"] select').last();
+    const chooser = page.getByRole('combobox', { name: /^Tool/ });
+    const preset = page.getByRole('combobox', { name: /^Preset/ });
     const formatControl = page.locator('.builder-output select').first();
+    await preset.selectOption('minimal');
+    await page.getByRole('heading', { name: '1. Choose a preset' }).waitFor();
+    await page.getByRole('heading', { name: '2. Customize (optional)' }).waitFor();
+    await page.getByRole('heading', { name: '3. Deploy' }).waitFor();
+    for (const [name] of editsByTool.prometheus.filter(([name]) => name.startsWith('Enable '))) {
+      assert.equal(await optionControl(page, name, 'check').isChecked(), false, name);
+    }
+    await page.getByText(/Prometheus server · about/).waitFor();
+    assert.equal(await page.getByText(/Pushgateway · about/).count(), 0);
+    await optionControl(page, 'Enable Pushgateway', 'check').check();
+    await page.getByText(/Pushgateway · about/).waitFor();
+    await preset.selectOption('recommended');
+    assert.equal(await optionControl(page, 'Enable Alertmanager', 'check').isChecked(), true);
+    assert.equal(await optionControl(page, 'Enable Pushgateway', 'check').isChecked(), false);
+    await preset.selectOption('full');
     const elapsed = [];
     for (const format of ['values', 'manifests']) {
       for (const [tool, edits] of Object.entries(editsByTool)) {
@@ -119,19 +137,40 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     }
 
     await chooser.selectOption('argo-cd');
-    await formatControl.selectOption('manifests');
-    const values = await download('Download Helm values');
+    const exportActions = page.getByLabel('Export active format');
+    assert.deepEqual(await exportActions.getByRole('button').allTextContents(), ['Copy', 'Download']);
+    const installCommands = page.getByLabel('Install commands');
+    const values = await download('Download');
     assert.equal(values.name, 'argo-cd-values.yaml');
     assert.match(values.text, /^# helm repo add argo /);
     assert.match(values.text, /helm install argo-cd argo\/argo-cd --version 10\.17\.1/);
     assert.match(values.text, /Indentation groups settings/);
     assert.match(values.text, /argocd admin initial-password/);
-    const workloads = await download('Download explained manifests');
+    for (const command of (await installCommands.textContent()).split('\n')) {
+      assert.ok(values.text.includes('# ' + command));
+    }
+    await formatControl.selectOption('manifests');
+    await page.getByText('CRD schemas', { exact: true }).waitFor();
+    assert.equal(await page.locator('details').getAttribute('open'), null);
+    assert.deepEqual(await exportActions.getByRole('button').allTextContents(), ['Copy', 'Download']);
+    const comparison = page.getByRole('button', { name: 'Compare Helm and Kubernetes YAML manifest' });
+    await comparison.click();
+    const panes = page.locator('.comparison-panes .preview');
+    await panes.nth(1).waitFor();
+    assert.equal(await panes.count(), 2);
+    for (const pane of await panes.all()) {
+      await pane.locator('.modified .line-numbers').first().waitFor();
+      assert.equal(await pane.locator('.original .line-numbers').count(), 0);
+    }
+    await comparison.click();
+    const workloads = await download('Download');
+    assert.equal(workloads.name, 'argo-cd-manifests.yaml');
+    assert.ok(workloads.text.startsWith('# ' + (await installCommands.textContent())));
+    assert.match(workloads.text, /Server-side apply avoids the annotation size limit/);
     assert.match(workloads.text, /# Why: Use apps\/v1 because/);
     assert.match(workloads.text, /REQUIRED IF you enable/);
-    assert.doesNotMatch(workloads.text, /^kind: CustomResourceDefinition$/m);
-    const schemas = await download('Download CRD schemas');
-    assert.match(schemas.text, /^kind: CustomResourceDefinition$/m);
+    assert.match(workloads.text, /^kind: CustomResourceDefinition$/m);
+    assert.match(workloads.text, /Run this Redis initialization Job first/);
 
     console.log(`All ${elapsed.length} option edits updated the preview in under one second. Slowest ${Math.max(...elapsed).toFixed(0)} ms.`);
   } finally {

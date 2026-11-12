@@ -5,5 +5,7 @@
   { "path": "server.persistentVolume.size", "label": "Storage size", "type": "text", "default": "8Gi", "requires": "server.persistentVolume.enabled", "comparison": "4Gi" },
   { "path": "server.resources", "label": "CPU and memory", "type": "resources", "default": {} },
   { "path": "alertmanager.enabled", "label": "Alertmanager", "type": "boolean", "default": true },
-  { "path": "kube-state-metrics.enabled", "label": "Kube-state-metrics", "type": "boolean", "default": true }
+  { "path": "kube-state-metrics.enabled", "label": "kube-state-metrics", "type": "boolean", "default": true },
+  { "path": "prometheus-node-exporter.enabled", "label": "Node exporter", "type": "boolean", "default": true },
+  { "path": "prometheus-pushgateway.enabled", "label": "Pushgateway", "type": "boolean", "default": true }
 ]

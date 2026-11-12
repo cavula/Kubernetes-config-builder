@@ -81,6 +81,7 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
       },
     });
     editor.setModel({ original, modified });
+    editor.getOriginalEditor().updateOptions({ lineNumbers: 'off' });
     editorRef.current = editor;
     models.current = { original, modified };
     return () => {

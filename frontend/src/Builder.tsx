@@ -1,25 +1,27 @@
 import deploymentCommands from '../../backend/deployment-commands.json';
 import exportGuides from '../../backend/export-guides.json';
 import acceptedRisks from '../../security/accepted-risks.json';
-import { useEffect, useState } from 'react';
-import { catalogForChart, defaultValues, dependencyHint, describeValuesPaths, previewValues, type catalogs, type Value } from './builder-values';
+import { useEffect, useMemo, useState } from 'react';
+import { catalogForChart, presetValues, prometheusAddons, dependencyHint, describeValuesPaths, previewValues, type catalogs, type Value, type Preset } from './builder-values';
 import { Preview } from './Preview';
 import { ChartComparison } from './ChartComparison';
 import { ExportActions } from './ExportActions';
 import { ValidationStatus } from './ValidationStatus';
 import { manifestNotes } from './manifest-notes';
+import { manifestComponents } from './manifest-components';
 import { explainManifestField, renderChart } from './render-chart';
 
-export function Builder({ tool, chartVersion, kubernetesVersion }: {
+export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
   tool: keyof typeof catalogs;
   chartVersion: string;
+  preset: Preset;
   kubernetesVersion: string;
 }) {
   const catalog = catalogForChart(tool, chartVersion);
   const hasAcceptedRisks = acceptedRisks.charts[tool].pinnedChart === chartVersion &&
     Object.values(acceptedRisks.images).some(entry => entry.tool === tool);
   const [{ current, previous }, setValues] = useState(() => {
-    const defaults = defaultValues(catalog);
+    const defaults = presetValues(catalog, preset);
     return { current: defaults, previous: defaults };
   });
 
@@ -30,13 +32,12 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
   const renderKey = JSON.stringify([tool, kubernetesVersion, currentPreview.text]);
 
   useEffect(() => {
-    if (format !== 'manifests') return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
         const text = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
         if (!controller.signal.aborted) {
-          const currentNotes = manifestNotes(text);
+          const currentNotes = manifestNotes(manifestComponents(text, tool).workloads);
           setManifest(({ current, notes }) => ({
             key: renderKey, current: text, previous: current || text,
             notes: currentNotes, previousNotes: current ? notes : currentNotes, error: '',
@@ -57,7 +58,7 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [format, tool, kubernetesVersion, currentPreview.text, renderKey]);
+  }, [tool, kubernetesVersion, currentPreview.text, renderKey]);
 
   function update(path: string, value: Value) {
     setValues(({ current }) => ({ current: { ...current, [path]: value }, previous: current }));
@@ -69,23 +70,28 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
     'Indentation groups settings under their parent keys. A dotted name shows the full path to a setting.',
     ...exportGuides[tool],
   ].map(line => '# ' + line).join('\n') + '\n\n' + describeValuesPaths(currentPreview);
-  async function loadExport(part: 'manifests' | 'crds') {
+  async function loadExport() {
     const response = await fetch('/api/export', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ tool, kubernetesVersion, values: currentPreview.text }),
     });
     if (!response.ok) throw new Error((await response.text()).trim() || 'Could not prepare the export.');
-    return (await response.json())[part] as string;
+    return (await response.json()).yaml as string;
   }
 
+  const rendered = useMemo(() => manifestComponents(manifest.current, tool), [manifest.current, tool]);
+  const prior = useMemo(() => manifestComponents(manifest.previous, tool), [manifest.previous, tool]);
+  const commands = deploymentCommands[tool][format === 'values' ? 'helm' : 'yaml'];
   return (
     <div className={compare ? "builder builder-comparing" : "builder"}>
-      <section aria-label="Builder options" className="builder-options">
+      <section aria-labelledby="customize" className="step builder-options">
+        <h2 id="customize">2. Customize (optional)</h2>
         {catalog.options.map(option => {
           const value = current[option.path];
           const hint = dependencyHint(catalog, option, current);
           const note = catalog.notes.fields[option.path];
+          const addon = tool === 'prometheus' && prometheusAddons.some(entry => entry.path === option.path);
           if (typeof value === 'object') {
             return (
               <fieldset key={option.path}>
@@ -97,15 +103,16 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
                       <input value={value[group]?.[resource] ?? ''} onChange={event =>
                         update(option.path, { ...value, [group]: { ...value[group], [resource]: event.target.value } })
                       } />
+                      <small>{catalog.notes.fields[`${option.path}.${group}.${resource}`]} Example {resource === 'cpu' ? '250m' : '512Mi'}.</small>
                     </label>
                   )),
                 )}
               </fieldset>
             );
           }
-          return (
+          const control = (
             <label key={option.path}>
-              {option.label}
+              {addon ? `Enable ${option.label}` : option.label}
               {typeof value === 'boolean' ? (
                 <input type="checkbox" checked={value} onChange={event => update(option.path, event.target.checked)} />
               ) : option.choices ? (
@@ -126,12 +133,15 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
                   }}
                 />
               )}
-              <small>{hint ?? note}</small>
+              <small>{hint ?? note} Example {String(typeof value === 'boolean' ? 'On' : option.comparison ?? option.default)}.</small>
             </label>
           );
+          return addon ? <fieldset key={option.path}><legend>{option.label}</legend>{control}</fieldset> : control;
         })}
       </section>
-      <div className="builder-output">
+      <section className="step builder-output" aria-labelledby="deploy">
+        <h2 id="deploy">3. Deploy</h2>
+        <p>{tool === 'prometheus' ? 'Prometheus' : 'Argo CD'} chart <strong>{chartVersion}</strong></p>
         {hasAcceptedRisks && (
           <p className="security-note">
             <strong>Chart image security note.</strong> The pinned {tool === 'argo-cd' ? 'Argo CD' : 'Prometheus'} chart
@@ -141,26 +151,27 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
         )}
         <ValidationStatus tool={tool} kubernetesVersion={kubernetesVersion} values={currentPreview.text} />
         <label>
-          Preview format
+          Template
           <select value={format} onChange={event => setFormat(event.target.value === 'manifests' ? 'manifests' : 'values')}>
-            <option value="values">Helm values</option>
-            <option value="manifests">See what this creates</option>
+            <option value="values">Helm chart</option>
+            <option value="manifests">YAML manifest</option>
           </select>
+          <small>Format to copy, download, and deploy. Example Helm chart.</small>
         </label>
-        <ExportActions key={tool} text={valuesExport} filename={`${tool}-values.yaml`} label="Download Helm values" copyLabel="Copy Helm values" />
-        {format === 'manifests' && (
-          <>
-            <ExportActions text={currentManifest} filename={`${tool}-manifests.yaml`}
-              label="Download explained manifests" copyLabel="Copy explained manifests" load={() => loadExport('manifests')} />
-            {tool === 'argo-cd' && (
-              <ExportActions text={currentManifest} filename="argo-cd-crds.yaml"
-                label="Download CRD schemas" copyLabel="Copy CRD schemas" load={() => loadExport('crds')} />
-            )}
-          </>
-        )}
-        <button type="button" aria-pressed={compare} onClick={() => setCompare(open => !open)}>
-          {compare ? 'Close comparison' : 'Compare Helm values and YAML'}
+        <ExportActions key={format} text={format === 'values' ? valuesExport : currentManifest}
+          filename={`${tool}-${format}.yaml`} load={format === 'manifests' ? loadExport : undefined} />
+        <button className="compare-toggle" type="button" aria-pressed={compare} onClick={() => setCompare(open => !open)}>
+          Compare Helm and Kubernetes YAML manifest
         </button>
+        <pre aria-label="Install commands"><code>{commands.join('\n')}</code></pre>
+        {currentManifest && (
+          <div aria-label="Included components">
+            <h3>Included components</h3>
+            <ul>{Array.from(rendered.components, ([name, lines]) => (
+              <li key={name}>{name} · about {lines} lines</li>
+            ))}</ul>
+          </div>
+        )}
         {compare ? (
           <ChartComparison catalog={catalog} tool={tool} kubernetesVersion={kubernetesVersion} values={current} />
         ) : format === 'values' ? (
@@ -169,10 +180,17 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
           <>
             {manifest.key === renderKey && manifest.error && <p role="alert">{manifest.error}</p>}
             <Preview explainField={(text, line, signal) => explainManifestField(text, kubernetesVersion, line, signal)}
-              current={{ text: manifest.current, notes: manifest.notes }} previous={{ text: manifest.previous, notes: manifest.previousNotes }} />
+              current={{ text: rendered.workloads, notes: manifest.notes }} previous={{ text: prior.workloads, notes: manifest.previousNotes }} />
+            {rendered.schemas && (
+              <details>
+                <summary>CRD schemas</summary>
+                <p>A CustomResourceDefinition registers a new resource type and its validation schema.</p>
+                <pre>{rendered.schemas}</pre>
+              </details>
+            )}
           </>
         )}
-      </div>
+      </section>
     </div>
   );
 }

@@ -4,7 +4,7 @@
 
 A local dashboard for building and learning Kubernetes configurations. Choose K3s 1.35, 1.36, or 1.37 and configure one tool at a time. The app uses Prometheus chart 29.45.1 and Argo CD chart 10.17.1.
 
-Edit settings beside a live Helm values or Kubernetes manifest preview. Compare a Helm option with the YAML it changes, check diagnostics from Helm lint and kubeconform, and copy or download the Helm values or explained manifests. A live cluster is only needed for deployment checks.
+Choose a tool, Kubernetes version, and preset. Customize settings and Prometheus add-ons if you want, then choose a template in Deploy. You can compare a Helm option with the YAML it changes and check diagnostics from Helm lint and kubeconform. Building, validating, and exporting work without a live cluster.
 
 ## Run with Docker
 
@@ -48,7 +48,7 @@ Open [http://localhost:5173](http://localhost:5173) or the URL printed by Vite. 
 
 ## Apply an export
 
-Download **Helm values** for the short, commented configuration. Choose **See what this creates** to download explained Kubernetes YAML. For Argo CD, apply `argo-cd-crds.yaml` first, then `argo-cd-manifests.yaml`, using `kubectl apply --server-side -f` for each file. The workload export includes the namespace and Redis initialization Job.
+In **Deploy**, choose **Helm chart** for a commented values file or **YAML manifest** for explained Kubernetes resources. Click **Download** and run the commands shown in Deploy or at the top of the file. The Argo CD manifest includes its CRDs, namespace, and Redis initialization Job. Its preview collapses the CRD schemas.
 
 For Prometheus, run `kubectl apply --server-side -f prometheus-manifests.yaml`. The file creates the `monitoring` namespace. Both configuration reloader images use the ARM64-compatible tag recorded in the [Decision Log](AGENTS.md#decision-log).
 

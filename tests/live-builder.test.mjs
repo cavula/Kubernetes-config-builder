@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { catalogForChart, catalogs, defaultValues, dependencyHint, previewValues } from '../frontend/src/builder-values.ts';
+import { catalogForChart, catalogs, defaultValues, dependencyHint, presetValues, prometheusAddons, previewValues } from '../frontend/src/builder-values.ts';
 
 const edits = {
-  prometheus: ['30s', '7d', false, '4Gi', { requests: { cpu: '50m', memory: '64Mi' } }, false, false],
+  prometheus: ['30s', '7d', false, '4Gi', { requests: { cpu: '50m', memory: '64Mi' } }, false, false, false, false],
   'argo-cd': ['NodePort', 2, 2, { requests: { cpu: '100m' } }, { limits: { memory: '256Mi' } }, true, false],
 };
 
@@ -76,4 +76,12 @@ test('Helm export comments name the full settings without changing values', asyn
   assert.match(explained, /# server\.global\.scrape_interval: How often Prometheus/);
   const settings = text => text.split('\n').filter(line => !line.trimStart().startsWith('#'));
   assert.deepEqual(settings(explained), settings(preview.text));
+});
+
+test('Prometheus presets use independent official chart add-on switches', () => {
+  const catalog = catalogs.prometheus;
+  const settings = preset => prometheusAddons.map(({ path }) => presetValues(catalog, preset)[path]);
+  assert.deepEqual(settings('minimal'), [false, false, false, false]);
+  assert.deepEqual(settings('recommended'), [true, true, true, false]);
+  assert.deepEqual(settings('full'), [true, true, true, true]);
 });

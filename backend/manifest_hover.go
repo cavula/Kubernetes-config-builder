@@ -186,6 +186,17 @@ func fieldWhy(id resourceID, path []string, value *yaml.Node, description string
 		return "Match these labels so the controller manages only the intended Pods."
 	case "image":
 		return "Run the implementation and version named by this pinned chart image reference."
+	case "rules":
+		if id.Kind == "ClusterRole" || id.Kind == "Role" {
+			return "List the API operations this component needs. A binding grants these permissions to the selected identity."
+		}
+	case "apiGroups":
+		return "Match the API groups that own the resources in this rule. An empty string means the core Kubernetes API."
+	case "hostPID":
+		if value.Value == "true" {
+			return "Share the node process namespace so node exporter can observe host processes for node-level metrics."
+		}
+		return "Keep the Pod in its own process namespace to isolate it from host processes."
 	case "hostNetwork":
 		if value.Value == "true" {
 			return "Use the node network namespace so this Pod can access the node’s network interfaces directly."

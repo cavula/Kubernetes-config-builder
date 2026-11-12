@@ -35,6 +35,7 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 		return explainedExport{}, err
 	}
 	var header, workloads, crds strings.Builder
+	schemas := make(map[[2]string]schemaObject)
 	for _, command := range commands[req.Tool].YAML {
 		fmt.Fprintln(&header, "# "+command)
 	}
@@ -62,7 +63,12 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 		if err := yaml.Unmarshal([]byte(strings.Join(resource.lines, "\n")), &doc); err != nil {
 			return explainedExport{}, err
 		}
-		schema := schemaForResource(schemaDir, req.KubernetesVersion, resource.id)
+		key := [2]string{resource.id.APIVersion, resource.id.Kind}
+		schema, found := schemas[key]
+		if !found {
+			schema = schemaForResource(schemaDir, req.KubernetesVersion, resource.id)
+			schemas[key] = schema
+		}
 		notes := make(map[int]string)
 		collectFieldNotes(doc.Content[0], resource, schema, schema, nil, "", notes)
 		workloads.WriteString("---\n")

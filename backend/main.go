@@ -302,6 +302,22 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("POST /api/bundle", func(w http.ResponseWriter, r *http.Request) {
+		req, ok := decodeRenderRequest(w, r)
+		if !ok {
+			return
+		}
+		bundle, err := helmBundle(*chartDir, req)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+		w.Header().Set("Content-Type", "application/zip")
+		if _, err := w.Write(bundle); err != nil {
+			log.Print(err)
+		}
+	})
+
 	mux.HandleFunc("POST /api/compare", func(w http.ResponseWriter, r *http.Request) {
 		req, ok := decodeRenderRequest(w, r)
 		if !ok {

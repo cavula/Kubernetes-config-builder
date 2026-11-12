@@ -18,6 +18,7 @@ var deploymentCommandsJSON []byte
 type explainedExport struct {
 	Manifests string `json:"manifests"`
 	CRDs      string `json:"crds"`
+	YAML      string `json:"yaml"`
 }
 
 func explainExport(manifest, schemaDir string, req renderRequest) (explainedExport, error) {
@@ -33,15 +34,18 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 	if err := json.Unmarshal(deploymentCommandsJSON, &commands); err != nil {
 		return explainedExport{}, err
 	}
-	var workloads, crds strings.Builder
+	var header, workloads, crds strings.Builder
 	for _, command := range commands[req.Tool].YAML {
-		fmt.Fprintln(&workloads, "# "+command)
+		fmt.Fprintln(&header, "# "+command)
+	}
+	if req.Tool == "argo-cd" {
+		header.WriteString("# Server-side apply avoids the annotation size limit for Argo CD's large CRDs.\n")
 	}
 	for _, line := range guides[req.Tool] {
-		fmt.Fprintln(&workloads, "# "+line)
+		fmt.Fprintln(&header, "# "+line)
 	}
-	workloads.WriteString("# Field sources: the pinned chart and Kubernetes API schemas. https://kubernetes.io/docs/reference/kubernetes-api/\n")
-	crds.WriteString("# A CustomResourceDefinition registers a new resource type and its validation schema. Apply this file first with kubectl apply --server-side -f argo-cd-crds.yaml to avoid the annotation size limit.\n")
+	header.WriteString("# Field sources: the pinned chart and Kubernetes API schemas. https://kubernetes.io/docs/reference/kubernetes-api/\n")
+
 	hasCRDs := false
 	for _, resource := range resources {
 		if resource.id.Kind == "CustomResourceDefinition" {
@@ -73,9 +77,11 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 			fmt.Fprintln(&workloads, line)
 		}
 	}
-	result := explainedExport{Manifests: workloads.String()}
+	result := explainedExport{Manifests: header.String() + workloads.String(), YAML: header.String() + workloads.String()}
 	if hasCRDs {
-		result.CRDs = crds.String()
+		const explanation = "# A CustomResourceDefinition registers a new resource type and its validation schema.\n"
+		result.CRDs = "# kubectl apply --server-side -f argo-cd-crds.yaml\n" + explanation + crds.String()
+		result.YAML = header.String() + explanation + crds.String() + workloads.String()
 	}
 	return result, nil
 }

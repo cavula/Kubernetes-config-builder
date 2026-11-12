@@ -29,6 +29,9 @@ func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
 			if !reflect.DeepEqual(resourceJSON(t, raw), resourceJSON(t, export.Manifests+export.CRDs)) {
 				t.Fatal("comments or CRD separation changed the rendered resources")
 			}
+			if !reflect.DeepEqual(resourceJSON(t, raw), resourceJSON(t, export.YAML)) {
+				t.Fatal("the single-file download must preserve all resources")
+			}
 			for _, resource := range resourcesForTest(t, export.Manifests) {
 				var doc yaml.Node
 				if err := yaml.Unmarshal([]byte(strings.Join(resource.lines, "\n")), &doc); err != nil {
@@ -82,5 +85,44 @@ func TestPrometheusExportBootstrapsMonitoringNamespace(t *testing.T) {
 	resources := resourcesForTest(t, raw)
 	if len(resources) == 0 || resources[0].id != (resourceID{APIVersion: "v1", Kind: "Namespace", Name: "monitoring"}) {
 		t.Fatal("the monitoring namespace must be the first resource")
+	}
+}
+
+func TestPrometheusExportGroupsServerBeforeEnabledAddons(t *testing.T) {
+	for _, values := range []string{
+		"",
+		"alertmanager: {enabled: false}\nkube-state-metrics: {enabled: false}\nprometheus-node-exporter: {enabled: false}\nprometheus-pushgateway: {enabled: false}\n",
+	} {
+		req := renderRequest{Tool: "prometheus", KubernetesVersion: "1.37", Values: values}
+		raw, err := render(context.Background(), pinnedChartFixtures(t), req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		export, err := explainExport(raw, "../.runtime/schemas", req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		last := -1
+		for _, component := range []string{"Prometheus server", "Alertmanager", "kube-state-metrics", "Node exporter", "Pushgateway"} {
+			position := strings.Index(export.YAML, "# Component: "+component+"\n")
+			if values != "" && component != "Prometheus server" {
+				if position >= 0 {
+					t.Errorf("disabled component %s appeared in export", component)
+				}
+				continue
+			}
+			if position <= last {
+				t.Fatalf("component %s is missing or out of order", component)
+			}
+			last = position
+		}
+		addonSeen := false
+		for _, resource := range resourcesForTest(t, export.YAML) {
+			document := strings.Join(resource.lines, "\n")
+			addonSeen = addonSeen || strings.Contains(document, "# Source: prometheus/charts/")
+			if addonSeen && strings.Contains(document, "# Source: prometheus/templates/") {
+				t.Errorf("main resource %s follows an add-on", resource.id.Name)
+			}
+		}
 	}
 }

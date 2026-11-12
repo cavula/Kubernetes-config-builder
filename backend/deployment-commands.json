@@ -12,7 +12,6 @@
       "helm install argo-cd argo/argo-cd --version 10.17.1 --namespace argocd --create-namespace --values argo-cd-values.yaml"
     ],
     "yaml": [
-      "kubectl apply --server-side -f argo-cd-crds.yaml",
       "kubectl apply --server-side -f argo-cd-manifests.yaml"
     ]
   }

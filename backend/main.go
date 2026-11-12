@@ -153,7 +153,44 @@ func renderLoadedChart(ctx context.Context, chart *chartv2.Chart, pin chartPin, 
 	if req.Tool == "prometheus" && pin.version == "29.45.1" {
 		manifest = commentReloaderImages(manifest)
 	}
-	return commentManifestSections(namespaceManifest(pin.namespace) + manifest), nil
+	return commentManifestSections(namespaceManifest(pin.namespace) + prometheusComponentSections(manifest)), nil
+}
+
+// Helm groups templates by kind. Keep the server together, then each enabled dependency.
+func prometheusComponentSections(manifest string) string {
+	components := []struct{ chart, label string }{
+		{"", "Prometheus server"},
+		{"alertmanager", "Alertmanager"},
+		{"kube-state-metrics", "kube-state-metrics"},
+		{"prometheus-node-exporter", "Node exporter"},
+		{"prometheus-pushgateway", "Pushgateway"},
+	}
+	groups := make([][]string, len(components))
+	for _, document := range strings.Split(manifest, "\n---\n") {
+		document = strings.TrimSpace(strings.TrimPrefix(document, "---\n"))
+		if document == "" {
+			continue
+		}
+		index := 0
+		for i, component := range components[1:] {
+			if strings.HasPrefix(document, "# Source: prometheus/charts/"+component.chart+"/") {
+				index = i + 1
+				break
+			}
+		}
+		groups[index] = append(groups[index], document)
+	}
+	var output strings.Builder
+	for i, documents := range groups {
+		for j, document := range documents {
+			output.WriteString("---\n")
+			if j == 0 {
+				fmt.Fprintf(&output, "# Component: %s\n", components[i].label)
+			}
+			fmt.Fprintln(&output, document)
+		}
+	}
+	return output.String()
 }
 
 func commentReloaderImages(manifest string) string {

@@ -77,3 +77,7 @@ mkdir -p .runtime/security
 ```
 
 The script prints findings and writes per-image JSON reports to the directory you pass. An incomplete scan fails the check.
+
+## License
+
+Licensed under the [MIT License](LICENSE). Copyright © 2026 Charan.

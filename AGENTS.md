@@ -91,7 +91,7 @@ Spec driven development. Every feature starts as a written spec with clear input
 - [x] Changing any option updates the code on the right within 1 second.
 - [x] Lines that changed are highlighted.
 - [x] Hovering over any field shows a plain English explanation.
-- [x] Every section of generated code has a comment saying what it is and what it does.
+- [x] Every section of generated code explains what it does and why it is present.
 
 **YAML and Helm**
 
@@ -138,7 +138,7 @@ Hosting remains an open question. Where should a hosted dashboard run, and who s
 3. For each feature, write a spec in /specs first, then the code, then tests.
 4. Follow the Folder Structure and Tech Stack exactly. Ask before changing either.
 5. Take every template field and explanation from the official project docs or Helm charts. Never invent fields.
-6. Every generated section must carry a comment saying what it is and what it does.
+6. Explain why each generated setting is present using official sources. Follow the export spec for credentials, embedded payloads, and CRDs.
 7. After each feature, run lint, kubeconform, and a deploy test on K3s, and tick the matching Acceptance Criteria.
 8. Keep commits small, with clear messages, so progress can be reviewed.
 9. If anything is unclear, stop and ask Charan, the product owner, rather than guess. Record each answer in the relevant spec so this document stays up to date.
@@ -151,7 +151,29 @@ This file and /specs are the single source of truth. Chat instructions never ove
 2. If it conflicts with anything, point out the conflict and confirm which one wins before coding.
 3. Once confirmed, update this file and the affected specs first, then change the code.
 4. Add an entry to the Decision Log below for every change.
-5. At the start of every session, reread this file and the Decision Log before doing anything.
+5. At the start of every session, read this entire file, including Lessons Learned and the Decision Log, before doing any project work.
+6. Whenever Charan corrects a mistake, add an entry to Lessons Learned in the same turn. Record the date, what went wrong, why it happened, and the rule that prevents it. Update the plan, relevant specs, or Decision Log when the lesson changes them.
+
+## Lessons Learned
+
+Dates refer to when the correction was made. The Decision Log records the resulting product and implementation decisions.
+
+| Date | What went wrong | Why | Rule that prevents it |
+| --- | --- | --- | --- |
+| 2026-11-11 | Initial checks ran on Node.js 26.12.1 even though the approved project version was 26.13.1. | The version file declared the pin while the commands used the Node executable already on PATH. | Check the executable version before running tests or builds. Keep the exact version enforced and document how to activate it locally. |
+| 2026-11-11 | I connected the remote without committing or pushing, and omitted the reason. | I read the repository URL as authorization to connect it and left that interpretation implicit. | State exactly what was done and what remains local. When publishing is requested, commit, push, verify the remote state, and name any blocker and the action needed to clear it. |
+| 2026-11-11 | GitHub rejected the first push because the three commits used a private email address. | The commits inherited an author email incompatible with GitHub’s privacy settings. | Check the repository-local identity before committing for publication. Use Charan’s approved GitHub noreply address for author and committer. |
+| 2026-11-11 | Live builder tests were omitted from the initial implementation, and I did not call out the gap. | I verified selection, type checking, and the build while the acceptance criteria required feature-level tests. | Add regression tests for feature acceptance criteria to the normal test command. State which checks are pending and leave their criteria unchecked. |
+| 2026-11-11 | Generated Helm values contained generic section comments and a Prometheus-specific persistence hint in the UI. | The renderer used a fallback comment and the form owned text that belonged to the chart catalog. | Put explanations and dependency hints in each tool’s chart notes, grounded in the pinned official chart. Test that every generated field and conditional hint resolves from those notes. |
+| 2026-11-11 | Rendering tests silently skipped missing charts, and the renderer loaded archives without verifying their hashes. | Tests treated absent fixtures as routine and trusted a filename and version as proof of contents. | Fail by default on missing or corrupt fixtures. Offer an explicit local skip flag. Verify archives against committed SHA-256 pins before loading, and document the verified download command. |
+| 2026-11-11 | Plain Argo CD YAML omitted Redis initialization, so workloads waited for a Secret that never appeared. | The export kept Helm’s ordinary manifest output and dropped the pre-install hook resources. | Test the exact export on a fresh cluster and include any required initialization resources. Run CI manifest checks with hooks included. |
+| 2026-11-11 | The Argo CD export did not lead with the server-side apply requirement. | The CRD size limit was documented separately from the YAML users actually apply. | Put mandatory apply commands and their reasons at the top of the relevant downloaded file. Test that the instructions survive export. |
+| 2026-11-11 | Prometheus and Alertmanager stalled on ARM64 because the pinned reloader tag had no ARM64 image. | Schema validation and server-side dry run could not detect an architecture mismatch in the image registry. | Inspect the official image index and verify rollout readiness on the target architecture. Get approval before changing chart or image pins and record the evidence and retirement condition for any override. |
+| 2026-11-11 | The schema downloader still used a mutable catalog branch, and repository documentation and acceptance records lagged behind the implementation. | Chart pins were locked first while schema provenance, the README, and the checklist were treated as follow-up work. | Pin schema inputs to commits, maintain setup instructions and the Decision Log alongside the code, and tick only verified criteria. Check CI for the exact full commit SHA before reporting its result. |
+| 2026-11-11 | Browser checks existed only as ad hoc commands, and rendered YAML hover coverage was partial. | Browser evidence was gathered manually and field explanations covered selected lines before the full manifest was tested. | Commit repeatable browser tests and run them in CI. Test every rendered field for hover coverage and verify real preview latency and interactions in Chromium. |
+| 2026-11-12 | Prometheus YAML omitted the monitoring namespace, so a fresh cluster could not apply the downloaded file directly. | Earlier deployment checks supplied the namespace separately and masked the missing resource. | Apply the exact downloaded YAML to a fresh cluster without precreating its namespace. Test that the namespace appears before dependent resources. |
+| 2026-11-12 | The v0.1.0 downloads described fields without consistently explaining why they were present. Credential guidance and post-install steps were missing, and CRD internals crowded the output. | Review emphasized valid rendering and field definitions while the learning goal was not checked against the actual downloads. | Review the files a user receives. Lead with short Helm values, offer explained workload YAML and separate CRDs, explain why meaningful values are chosen from official sources, mark user-supplied credentials with their purpose and sourcing instructions, and test the download headers and resource explanations. |
+| 2026-11-12 | I kept implementation decisions but did not record the mistakes Charan corrected as reusable lessons. | The workflow required a Decision Log and had no place to preserve causes and prevention rules. | Record each correction in Lessons Learned in the same turn. Reread the section and Decision Log at the start of every session and update affected project guidance. |
 
 ## Decision Log
 
@@ -187,3 +209,4 @@ This file and /specs are the single source of truth. Chat instructions never ove
 | 2026-11-12 | Package v0.1.0 as a local Docker Compose release with verified charts and schemas. Reopen the hosting decision. | Developer-tool setup as the only local run path | Deploy, README, CI |
 | 2026-11-12 | Build the bundled Helm and kubeconform commands from the same pinned Go module and toolchain as the dashboard. Scan the completed Docker image in CI. | Shipping validator binaries with a separate dependency graph | Deploy, security review |
 | 2026-11-12 | Make short Helm values the primary download. Offer an optional rendered view with explained manifests and separate CRDs. Include both namespaces in plain YAML and document post-install access from the pinned charts and official docs. Mark conditional credentials with the expected value, source, and Git warning. | Raw manifest download and Prometheus namespace prerequisite | Export, builder, deployment |
+| 2026-11-12 | Record every mistake Charan corrects in Lessons Learned and read it at the start of every session. Update any affected plan, spec, or decision alongside the lesson. License the project under MIT with Charan as copyright holder. | Decision-only history and unspecified repository license | Project workflow, README, licensing |

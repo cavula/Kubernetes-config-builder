@@ -5,6 +5,7 @@ import { Preview } from './Preview';
 import { ChartComparison } from './ChartComparison';
 import { ExportActions } from './ExportActions';
 import { ValidationStatus } from './ValidationStatus';
+import { manifestNotes } from './manifest-notes';
 import { renderChart } from './render-chart';
 
 export function Builder({ tool, chartVersion, kubernetesVersion }: {
@@ -22,7 +23,7 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
 
   const [format, setFormat] = useState<'values' | 'manifests'>('values');
   const [compare, setCompare] = useState(false);
-  const [manifest, setManifest] = useState({ key: '', current: '', previous: '', error: '' });
+  const [manifest, setManifest] = useState({ key: '', current: '', previous: '', notes: new Map<number, string>(), previousNotes: new Map<number, string>(), error: '' });
   const currentPreview = previewValues(catalog, current);
   const renderKey = JSON.stringify([tool, kubernetesVersion, currentPreview.text]);
 
@@ -31,16 +32,23 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const text = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
+        const { text, notes } = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal, text => {
+          if (controller.signal.aborted) return;
+          const currentNotes = manifestNotes(text);
+          setManifest(({ current, notes }) => ({
+            key: renderKey, current: text, previous: current || text,
+            notes: currentNotes, previousNotes: current ? notes : currentNotes, error: '',
+          }));
+        });
         if (!controller.signal.aborted) {
-          setManifest(({ current }) => ({ key: renderKey, current: text, previous: current || text, error: '' }));
+          setManifest(previous => ({ ...previous, notes: manifestNotes(text, notes) }));
         }
       } catch (error) {
         if (!controller.signal.aborted) {
           setManifest(previous => ({
             ...previous,
             key: renderKey,
-            current: '',
+            current: previous.key === renderKey ? previous.current : '',
             error: error instanceof Error ? error.message : 'Could not render the chart.',
           }));
         }
@@ -142,7 +150,7 @@ export function Builder({ tool, chartVersion, kubernetesVersion }: {
         ) : (
           <>
             {manifest.key === renderKey && manifest.error && <p role="alert">{manifest.error}</p>}
-            <Preview current={{ text: currentManifest, notes: new Map() }} previous={{ text: manifest.previous, notes: new Map() }} />
+            <Preview current={{ text: currentManifest, notes: manifest.notes }} previous={{ text: manifest.previous, notes: manifest.previousNotes }} />
           </>
         )}
       </div>

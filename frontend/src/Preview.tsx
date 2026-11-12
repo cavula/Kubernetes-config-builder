@@ -17,7 +17,7 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
   const container = useRef<HTMLDivElement>(null);
   const models = useRef<{ original: monaco.editor.ITextModel; modified: monaco.editor.ITextModel }>(null);
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor>(null);
-  const currentNotes = useRef(current.notes);
+  const hoverNotes = useRef({ current: current.notes, previous: previous.notes });
 
   useEffect(() => {
     const original = monaco.editor.createModel('', 'yaml');
@@ -32,8 +32,9 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
     });
     const hover = monaco.languages.registerHoverProvider('yaml', {
       provideHover(model, position) {
-        const note = currentNotes.current.get(position.lineNumber);
-        if (model === modified && note) return { contents: [{ value: note }] };
+        const notes = model === modified ? hoverNotes.current.current : model === original ? hoverNotes.current.previous : undefined;
+        const note = notes?.get(position.lineNumber);
+        if (note) return { contents: [{ value: note.replace(/[\\`*_{}\[\]()<>#+.!|]/g, '\\$&') }] };
       },
     });
     editor.setModel({ original, modified });
@@ -50,7 +51,7 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
   }, []);
 
   useEffect(() => {
-    currentNotes.current = current.notes;
+    hoverNotes.current = { current: current.notes, previous: previous.notes };
     const { original, modified } = models.current!;
     if (original.getValue() !== previous.text) original.setValue(previous.text);
     if (modified.getValue() !== current.text) modified.setValue(current.text);

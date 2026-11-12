@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 3 ]]; then
-  echo "Usage: $0 <1.35|1.36|1.37> <prometheus|argo-cd> <dedicated-test-kubeconfig>" >&2
+if [[ $# -lt 3 || $# -gt 4 ]]; then
+  echo "Usage: $0 <1.35|1.36|1.37> <prometheus|argo-cd> <dedicated-test-kubeconfig> [values-file]" >&2
   exit 2
 fi
 version=$1
 tool=$2
 config=$3
+values_file=${4:-}
 
 case "$version" in
   1.35) expected_context=k3d-kcb-test-135 ;;
@@ -21,7 +22,12 @@ case "$tool" in
   *) echo "Unsupported tool: $tool" >&2; exit 2 ;;
 esac
 
-cluster=(kubectl --kubeconfig "$config" --context "$expected_context")
+context=$(kubectl --kubeconfig "$config" config current-context)
+if [[ "$context" != "$expected_context" && "$context" != "k3d-kcb-test-${version//./}-fresh" && "$context" != "k3d-kcb-test-${version//./}-variant" ]]; then
+  echo "Unexpected dedicated test context: $context" >&2
+  exit 2
+fi
+cluster=(kubectl --kubeconfig "$config" --context "$context")
 endpoint=$("${cluster[@]}" config view --minify -o jsonpath='{.clusters[0].cluster.server}')
 if [[ "$endpoint" != https://127.0.0.1:* ]]; then
   echo "Expected a loopback API endpoint for $expected_context." >&2
@@ -36,8 +42,20 @@ fi
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 manifest="$scratch/$tool.yaml"
-curl --fail --silent --show-error -H 'Content-Type: application/json' \
-  --data "{\"tool\":\"$tool\",\"kubernetesVersion\":\"$version\",\"values\":\"\"}" \
+payload=$(python3 - "$tool" "$version" "$values_file" <<'PYCODE'
+import json
+import sys
+from pathlib import Path
+
+tool, version, values_file = sys.argv[1:]
+values = Path(values_file).read_text() if values_file else ""
+print(json.dumps({"tool": tool, "kubernetesVersion": version, "values": values}))
+PYCODE
+)
+curl --fail --silent --show-error -H 'Content-Type: application/json' --data "$payload" \
+  http://127.0.0.1:8080/api/validate |
+  python3 -c 'import json,sys; result=json.load(sys.stdin); print(json.dumps(result)); sys.exit(result["status"] != "passed")'
+curl --fail --silent --show-error -H 'Content-Type: application/json' --data "$payload" \
   http://127.0.0.1:8080/api/render > "$manifest"
 
 if [[ "$tool" == prometheus ]]; then

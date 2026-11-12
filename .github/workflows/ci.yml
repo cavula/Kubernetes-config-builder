@@ -41,11 +41,31 @@ jobs:
           npm ci
           npm test
           npm run build
+      - name: Prepare offline schemas
+        run: python3 backend/download-schemas.py
       - name: Test Go renderer and validator
         working-directory: backend
         run: go test ./...
-      - name: Prepare offline schemas
-        run: python3 backend/download-schemas.py
+      - name: Test live builder in Chromium
+        shell: bash
+        run: |
+          (cd frontend && npx playwright-core install --with-deps chromium)
+          (cd backend && go build -o "$RUNNER_TEMP/kcb-backend" .)
+          (cd backend && exec "$RUNNER_TEMP/kcb-backend") > "$RUNNER_TEMP/backend.log" 2>&1 &
+          backend_pid=$!
+          (cd frontend && exec npm run dev -- --host 127.0.0.1 --port 5173 --strictPort) > "$RUNNER_TEMP/frontend.log" 2>&1 &
+          frontend_pid=$!
+          trap 'kill "$backend_pid" "$frontend_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..20}; do
+            if curl --silent --fail -o /dev/null http://127.0.0.1:5173/ && curl --silent -o /dev/null http://127.0.0.1:8080/; then
+              break
+            fi
+            sleep 1
+          done
+          if ! (cd frontend && npm run test:browser); then
+            cat "$RUNNER_TEMP/backend.log" "$RUNNER_TEMP/frontend.log"
+            exit 1
+          fi
       - name: Lint and validate both charts across supported Kubernetes versions
         shell: bash
         run: |

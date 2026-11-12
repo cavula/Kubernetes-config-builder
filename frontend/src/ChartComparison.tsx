@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { comparisonValues, dependencyHint, previewValues, type Catalog, type Value } from './builder-values';
 import { Preview, type LineRange } from './Preview';
-
-const noNotes = new Map<number, string>();
+import { manifestNotes } from './manifest-notes';
 
 type Change = {
   resource: { apiVersion: string; kind: string; namespace?: string; name: string };
@@ -10,7 +9,10 @@ type Change = {
   current?: LineRange;
   prior?: LineRange;
 };
-type Comparison = { current: string; prior: string; changes: Change[] };
+type Comparison = {
+  current: string; prior: string; changes: Change[];
+  currentNotes: Record<string, string>; priorNotes: Record<string, string>;
+};
 
 function rangeLabel(range: LineRange) {
   return range.start === range.end ? `line ${range.start}` : `lines ${range.start}–${range.end}`;
@@ -67,7 +69,8 @@ export function ChartComparison({ catalog, tool, kubernetesVersion, values }: {
   const selected = navigation?.key === requestKey ? navigation : undefined;
   const side = selected?.side ?? 'current';
   const ranges = comparison?.changes.flatMap(change => change[side] ? [change[side]] : []);
-  const rendered = { text: comparison?.[side] ?? '', notes: noNotes };
+  const text = comparison?.[side] ?? '';
+  const rendered = { text, notes: manifestNotes(text, side === 'current' ? comparison?.currentNotes : comparison?.priorNotes) };
   const hint = dependencyHint(catalog, option, values);
   return (
     <div className="chart-comparison" aria-label="Helm to YAML comparison">

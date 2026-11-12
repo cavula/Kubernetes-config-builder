@@ -22,6 +22,8 @@ import (
 	"helm.sh/helm/v4/pkg/chart/common"
 	chartvalues "helm.sh/helm/v4/pkg/chart/common/util"
 	"helm.sh/helm/v4/pkg/chart/loader"
+	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
+	chartutil "helm.sh/helm/v4/pkg/chart/v2/util"
 	release "helm.sh/helm/v4/pkg/release/v1"
 )
 
@@ -97,17 +99,36 @@ func render(ctx context.Context, chartDir string, req renderRequest) (string, er
 		return "", errors.New("unsupported Kubernetes version")
 	}
 
-	version, err := common.ParseKubeVersion("v" + req.KubernetesVersion + ".0")
-	if err != nil {
-		return "", err
-	}
 	archive, err := verifiedArchive(chartDir, req.Tool+"-"+pin.version+".tgz")
 	if err != nil {
 		return "", err
 	}
-	chart, err := loader.LoadArchive(bytes.NewReader(archive))
+	loaded, err := loader.LoadArchive(bytes.NewReader(archive))
 	if err != nil {
 		return "", err
+	}
+	chart, ok := loaded.(*chartv2.Chart)
+	if !ok {
+		return "", errors.New("unsupported chart API version")
+	}
+	return renderLoadedChart(ctx, chart, pin, req)
+}
+
+type kubernetesVersionMismatch struct {
+	required string
+}
+
+func (err *kubernetesVersionMismatch) Error() string {
+	return fmt.Sprintf("chart requires Kubernetes %s", err.required)
+}
+
+func renderLoadedChart(ctx context.Context, chart *chartv2.Chart, pin chartPin, req renderRequest) (string, error) {
+	version, err := common.ParseKubeVersion("v" + req.KubernetesVersion + ".0")
+	if err != nil {
+		return "", err
+	}
+	if required := chart.Metadata.KubeVersion; required != "" && !chartutil.IsCompatibleRange(required, version.String()) {
+		return "", &kubernetesVersionMismatch{required}
 	}
 	values, err := effectiveValues(req)
 	if err != nil {
@@ -126,12 +147,12 @@ func render(ctx context.Context, chartDir string, req renderRequest) (string, er
 	}
 	rendered := result.(*release.Release)
 	if req.Tool == "argo-cd" {
-		return argoCDManifests(rendered, pin.namespace), nil
+		return commentManifestSections(argoCDManifests(rendered, pin.namespace)), nil
 	}
 	if req.Tool == "prometheus" && pin.version == "29.45.1" {
-		return commentReloaderImages(rendered.Manifest), nil
+		return commentManifestSections(commentReloaderImages(rendered.Manifest)), nil
 	}
-	return rendered.Manifest, nil
+	return commentManifestSections(rendered.Manifest), nil
 }
 
 func commentReloaderImages(manifest string) string {
@@ -210,6 +231,22 @@ func main() {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
+		if r.Header.Get("Accept") == "application/x-ndjson" {
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			encoder := json.NewEncoder(w)
+			if err := encoder.Encode(manifest); err != nil {
+				log.Print(err)
+				return
+			}
+			if err := http.NewResponseController(w).Flush(); err != nil {
+				log.Print(err)
+				return
+			}
+			if err := encoder.Encode(manifestHoverNotes(manifest, *schemaDir, req.KubernetesVersion)); err != nil {
+				log.Print(err)
+			}
+			return
+		}
 		w.Header().Set("Content-Type", "text/yaml; charset=utf-8")
 		if _, err := io.WriteString(w, manifest); err != nil {
 			log.Print(err)
@@ -242,10 +279,16 @@ func main() {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		response := struct {
-			Current string           `json:"current"`
-			Prior   string           `json:"prior"`
-			Changes []resourceChange `json:"changes"`
-		}{current, prior, changes}
+			Current      string           `json:"current"`
+			Prior        string           `json:"prior"`
+			Changes      []resourceChange `json:"changes"`
+			CurrentNotes map[int]string   `json:"currentNotes"`
+			PriorNotes   map[int]string   `json:"priorNotes"`
+		}{current, prior, changes, manifestHoverNotes(current, *schemaDir, req.KubernetesVersion), nil}
+		response.PriorNotes = response.CurrentNotes
+		if prior != current {
+			response.PriorNotes = manifestHoverNotes(prior, *schemaDir, req.KubernetesVersion)
+		}
 		if err := json.NewEncoder(w).Encode(response); err != nil {
 			log.Print(err)
 		}

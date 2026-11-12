@@ -33,11 +33,8 @@ func validate(ctx context.Context, chartDir, schemaDir string, req renderRequest
 	result := validationResult{Status: "passed", Diagnostics: []diagnostic{}}
 	manifest, err := render(ctx, chartDir, req)
 	if err != nil {
-		severity := "error"
-		if strings.Contains(err.Error(), "incompatible with Kubernetes") {
-			severity = "warning"
-		}
-		result.add("Render", severity, fmt.Sprintf("%s on Kubernetes %s: %v", req.Tool, req.KubernetesVersion, err))
+		issue := renderDiagnostic(req, err)
+		result.add(issue.Check, issue.Severity, issue.Message)
 		return result
 	}
 
@@ -48,6 +45,16 @@ func validate(ctx context.Context, chartDir, schemaDir string, req renderRequest
 		result.add(issue.Check, issue.Severity, issue.Message)
 	}
 	return result
+}
+
+func renderDiagnostic(req renderRequest, err error) diagnostic {
+	var mismatch *kubernetesVersionMismatch
+	if errors.As(err, &mismatch) {
+		return diagnostic{"Compatibility", "warning",
+			fmt.Sprintf("%s chart %s requires Kubernetes %s. You selected Kubernetes %s.",
+				req.Tool, charts[req.Tool].version, mismatch.required, req.KubernetesVersion)}
+	}
+	return diagnostic{"Render", "error", fmt.Sprintf("%s on Kubernetes %s: %v", req.Tool, req.KubernetesVersion, err)}
 }
 
 func lintChart(ctx context.Context, chartDir string, req renderRequest) *diagnostic {

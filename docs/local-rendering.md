@@ -59,3 +59,14 @@ Start the Go renderer and run the check once per tool and Kubernetes version. Th
 ./tests/check-k3s-deploy.sh 1.36 argo-cd .runtime/k3s/kubeconfig-136.yaml
 ./tests/check-k3s-deploy.sh 1.36 prometheus .runtime/k3s/kubeconfig-136.yaml
 ```
+
+Pass a values file as the fourth argument to test a resource-changing configuration. Run it against a fresh dedicated cluster, so resources from a previous installation do not affect the result.
+
+```sh
+k3d cluster create kcb-test-135-variant --image rancher/k3s:v1.35.10-k3s1 --api-port 127.0.0.1:6554 --kubeconfig-update-default=false --kubeconfig-switch-context=false --wait
+(umask 077; k3d kubeconfig get kcb-test-135-variant > .runtime/k3s/kubeconfig-135-variant.yaml)
+./tests/check-k3s-deploy.sh 1.35 prometheus .runtime/k3s/kubeconfig-135-variant.yaml tests/fixtures/prometheus-resource-options.yaml
+./tests/check-k3s-deploy.sh 1.35 argo-cd .runtime/k3s/kubeconfig-135-variant.yaml tests/fixtures/argo-cd-resource-options.yaml
+```
+
+The check runs Helm lint and kubeconform through the validation API before submitting resources. Keep Helm and kubeconform on the backend’s PATH and prepare the local schemas first. The Go equivalence test also runs `helm template` from PATH to compare the exported resource objects with Helm’s output.

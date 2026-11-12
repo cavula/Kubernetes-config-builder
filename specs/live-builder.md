@@ -38,9 +38,9 @@ An options panel on the left and a read-only Monaco code preview on the right, w
 
 ## Acceptance criteria
 
-- [ ] An accepted option edit updates the preview within one second. Rapid edits show the newest result.
-- [ ] The preview highlights added and changed lines and identifies removed lines or resources.
-- [ ] Each generated section includes a comment explaining its purpose. Each field has a plain-English hover explanation based on official sources.
+- [x] An accepted option edit updates the preview within one second. Rapid edits show the newest result.
+- [x] The preview highlights added and changed lines and identifies removed lines or resources.
+- [x] Each generated section includes a comment explaining its purpose. Each field has a plain-English hover explanation based on official sources.
 - [x] Conditional controls explain their dependencies, such as PVC size requiring persistence.
 - [x] For every approved option, fixtures verify chart paths and expected effects against renders from the pinned chart.
 - [x] Defaults generate no privileged containers.

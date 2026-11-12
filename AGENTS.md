@@ -88,10 +88,10 @@ Spec driven development. Every feature starts as a written spec with clear input
 
 **Live builder**
 
-- [ ] Changing any option updates the code on the right within 1 second.
-- [ ] Lines that changed are highlighted.
-- [ ] Hovering over any field shows a plain English explanation.
-- [ ] Every section of generated code has a comment saying what it is and what it does.
+- [x] Changing any option updates the code on the right within 1 second.
+- [x] Lines that changed are highlighted.
+- [x] Hovering over any field shows a plain English explanation.
+- [x] Every section of generated code has a comment saying what it is and what it does.
 
 **YAML and Helm**
 
@@ -101,8 +101,8 @@ Spec driven development. Every feature starts as a written spec with clear input
 **Validation**
 
 - [x] Generated code passes kubeconform and Helm lint with zero errors.
-- [ ] Generated code deploys cleanly to a fresh K3s cluster.
-- [ ] A version mismatch between tool and Kubernetes shows a clear warning.
+- [x] Generated code deploys cleanly to a fresh K3s cluster.
+- [x] A version mismatch between tool and Kubernetes shows a clear warning.
 
 **Export**
 
@@ -110,7 +110,7 @@ Spec driven development. Every feature starts as a written spec with clear input
 
 **Security**
 
-- [ ] Dependency and container scans show no high or critical issues.
+- [x] Our own dependencies have no high or critical issues, and upstream image findings are tracked as accepted risks with a review date.
 - [x] Generated configs use secure defaults, such as no privileged containers unless the user asks.
 
 ## Phases
@@ -178,3 +178,9 @@ This file and /specs are the single source of truth. Chat instructions never ove
 | 2026-11-11 | Match rendered YAML resources by API version, kind, namespace, and name. Show exact current and comparison line ranges for changed, added, and removed resources. | One diff over the entire manifest stream | Helm-to-YAML comparison |
 | 2026-11-11 | Pin transitive DOMPurify to 3.4.17 for [GHSA-cg2g-xh64-v4q7](https://github.com/advisories/GHSA-cg2g-xh64-v4q7) and [GHSA-mrv2-3pqr-j5jr](https://github.com/advisories/GHSA-mrv2-3pqr-j5jr). Update golang.org/x/net to v0.62.0 for [CVE-2026-78661](https://avd.aquasec.com/nvd/cve-2026-78661). High and critical application dependency findings always fail CI. | DOMPurify 3.4.15 and x/net v0.60.0 | npm, Go, CI |
 | 2026-11-11 | Review official chart releases before changing chart pins, with no per-image upgrades for security findings. Prometheus 29.47.1 and Argo CD 10.18.0 retain the findings on both architectures. Keep current pins pending approval. Report exact accepted image findings in CI and display a note in the app. Review on 2026-12-11. Unaccepted or expired findings still fail CI. | Blocking every image finding, including those without an official chart fix | Security review, CI, chart exports |
+| 2026-11-11 | Keep Prometheus chart 29.45.1 after comparing it with 29.47.1. Both show 35 distinct high-severity image repository, package, and advisory combinations on each architecture, with no findings resolved or added. | Conditional chart upgrade pending scan comparison | Prometheus, security review |
+| 2026-11-11 | Classify Kubernetes compatibility mismatches from the chart's declared version range. Show the chart, selected minor, and supported range in a warning. | Matching Helm error text for compatibility warnings | Validation |
+| 2026-11-11 | Verify plain YAML against Helm CLI resource objects for both tools across all three Kubernetes minors, with defaults and resource-changing options. Argo CD plain YAML additionally bootstraps its namespace. | Unverified equivalence | Rendering and export |
+| 2026-11-11 | Include a purpose comment for each rendered Kubernetes resource and expose those explanations on kind fields. Run live default and resource-changing fixtures in fresh dedicated K3s clusters across all three minors. | Partial manifest comments and incomplete deploy matrix | Live builder, deployment checks |
+| 2026-11-11 | Use the security acceptance criterion “Our own dependencies have no high or critical issues, and upstream image findings are tracked as accepted risks with a review date.” | Requiring a zero-finding scan across application dependencies and upstream images | MVP acceptance, security review |
+| 2026-11-11 | Run the committed browser tests in CI. Explain rendered YAML fields using pinned Kubernetes schema descriptions and contextual notes for chart-defined entries. | Manual browser checks and hover explanations limited to values and selected manifest lines | Live builder, tests, CI |

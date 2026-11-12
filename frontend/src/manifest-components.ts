@@ -1,22 +1,21 @@
 import { prometheusAddons } from './builder-values';
+import { manifestNotes } from './manifest-notes';
 
 export function manifestComponents(text: string, tool: string) {
-  const components = new Map<string, number>();
-  const workloads: string[] = [];
-  const schemas: string[] = [];
-  for (const part of text.split(/^---[ \t]*$/m)) {
-    if (!/^kind: /m.test(part)) {
-      if (part.trim()) workloads.push(part.trim());
-      continue;
-    }
-    const schema = /^kind: CustomResourceDefinition\s*$/m.test(part);
+  const documents = new Map<string, string[]>();
+  const main = tool === 'prometheus' ? 'Prometheus server' : 'Argo CD';
+  const [header, ...parts] = text.split(/^---[ \t]*$/m);
+  for (const part of parts) {
     const dependency = part.match(/^# Source: prometheus\/charts\/([^/]+)\//m)?.[1];
     const addon = prometheusAddons.find(entry => entry.path === `${dependency}.enabled`);
-    const label = schema ? 'CRD schemas' : addon?.label ?? (tool === 'prometheus' ? 'Prometheus server' : 'Argo CD');
-    components.set(label, (components.get(label) ?? 0) + part.trim().split('\n').length + 1);
-    (schema ? schemas : workloads).push(part.trim());
+    const label = /^kind: CustomResourceDefinition[ \t]*$/m.test(part) ? 'CRD schemas' : addon?.label ?? main;
+    const group = documents.get(label) ?? [];
+    group.push(`---\n${part.trim()}\n`);
+    documents.set(label, group);
   }
-  // Header comments, if any, must stay ahead of the first document.
-  const join = (parts: string[]) => parts.map(part => /^kind: /m.test(part) ? `---\n${part}\n` : `${part}\n`).join('');
-  return { components, workloads: join(workloads), schemas: join(schemas) };
+  return Array.from(documents, ([name, parts]) => {
+    const body = parts.join('');
+    const text = name === main ? header + body : body;
+    return { name, text, lines: body.trimEnd().split('\n').length, notes: manifestNotes(text) };
+  }).sort((a, b) => Number(b.name === main) - Number(a.name === main));
 }

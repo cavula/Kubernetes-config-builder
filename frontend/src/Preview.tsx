@@ -54,6 +54,7 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
       renderSideBySide: false,
       minimap: { enabled: false },
       diffWordWrap: 'on',
+      stickyScroll: { enabled: true },
       accessibilityVerbose: true,
     });
     const hover = monaco.languages.registerHoverProvider('yaml', {

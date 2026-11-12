@@ -51,7 +51,7 @@ k3d cluster create kcb-test-136 --image rancher/k3s:v1.36.6-k3s1 --api-port 127.
 (umask 077; k3d kubeconfig get kcb-test-136 > .runtime/k3s/kubeconfig-136.yaml)
 ```
 
-Start the Go renderer and run the check once per tool and Kubernetes version. The check uses the renderer's YAML and waits for all Deployments, StatefulSets and DaemonSets in the tool's namespace.
+Start the Go renderer and run the check once per tool and Kubernetes version. The check applies the same explained YAML sent to the browser for copy and download. It waits up to ten minutes per Deployment, StatefulSet, and DaemonSet and prints pod status and events on failure. Set `KCB_ROLLOUT_TIMEOUT` to override the timeout or `KCB_APP_URL` to point to another local renderer port.
 
 ```sh
 ./tests/check-k3s-deploy.sh 1.35 argo-cd .runtime/k3s/kubeconfig-135.yaml

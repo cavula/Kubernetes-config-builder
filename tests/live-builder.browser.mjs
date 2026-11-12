@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 
@@ -44,7 +49,7 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     args: ['--disable-gpu'],
   });
   try {
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, permissions: ['clipboard-read', 'clipboard-write'] });
     page.setDefaultTimeout(8000);
     await page.goto(process.env.KCB_APP_URL ?? 'http://127.0.0.1:5173');
     await page.locator('.view-line').first().waitFor();
@@ -59,7 +64,12 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     const chooser = page.getByRole('combobox', { name: /^Tool/ });
     const preset = page.getByRole('combobox', { name: /^Preset/ });
     const formatControl = page.locator('.builder-output select').first();
-    await preset.selectOption('minimal');
+    assert.equal(await preset.inputValue(), 'minimal');
+    await page.setViewportSize({ width: 375, height: 800 });
+    const presetBox = await preset.boundingBox();
+    const cardBox = await page.locator('.configuration-selection').boundingBox();
+    assert.ok(presetBox.x + presetBox.width <= cardBox.x + cardBox.width);
+    await page.setViewportSize({ width: 1440, height: 1000 });
     await page.getByRole('heading', { name: '1. Choose a preset' }).waitFor();
     await page.getByRole('heading', { name: '2. Customize (optional)' }).waitFor();
     await page.getByRole('heading', { name: '3. Deploy' }).waitFor();
@@ -69,7 +79,12 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     await page.getByText(/Prometheus server · about/).waitFor();
     assert.equal(await page.getByText(/Pushgateway · about/).count(), 0);
     await optionControl(page, 'Enable Pushgateway', 'check').check();
-    await page.getByText(/Pushgateway · about/).waitFor();
+    await page.getByRole('button', { name: /Pushgateway · about/ }).click();
+    const pushgateway = page.locator('details[id="component-Pushgateway"]');
+    assert.equal(await pushgateway.evaluate(section => section.open), true);
+    assert.equal(await pushgateway.locator('summary').evaluate(summary => summary === document.activeElement), true);
+    await pushgateway.locator('summary').click();
+    assert.equal(await pushgateway.evaluate(section => section.open), false);
     await preset.selectOption('recommended');
     assert.equal(await optionControl(page, 'Enable Alertmanager', 'check').isChecked(), true);
     assert.equal(await optionControl(page, 'Enable Pushgateway', 'check').isChecked(), false);
@@ -88,7 +103,9 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
           if (type === 'check') await control.setChecked(!(await control.isChecked()));
           else if (type === 'select') await control.selectOption(value);
           else await control.fill(value);
-          await page.waitForFunction(old => {
+          if (format === 'manifests' && tool === 'prometheus' && name.startsWith('Enable ')) {
+            await page.getByRole('button', { name: new RegExp(name.slice(7) + ' · about') }).waitFor({ state: 'detached' });
+          } else await page.waitForFunction(old => {
             const model = globalThis.testMonaco.getModels().at(-1);
             return Boolean(model && model.getValueLength() > 0 && model.getVersionId() !== old);
           }, before);
@@ -109,12 +126,12 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     await page.locator('.monaco-hover').getByText(/How often Prometheus collects metrics/).waitFor();
 
     await formatControl.selectOption('manifests');
-    await page.waitForFunction(() => globalThis.testMonaco.getModels().at(-1)?.getValue().includes('automountServiceAccountToken:'));
-    const manifestHover = page.locator('.monaco-hover').getByText(/automountServiceAccountToken|service account token/i);
+    await page.waitForFunction(() => globalThis.testMonaco.getModels().at(-1)?.getValue().includes('securityContext:'));
+    const manifestHover = page.locator('.monaco-hover').getByText(/Constrain the identity and privileges/i);
     for (let attempt = 0; attempt < 10; attempt++) {
       await page.evaluate(() => {
         const model = globalThis.testMonaco.getModels().at(-1);
-        const { startLineNumber, startColumn } = model.findMatches('automountServiceAccountToken:', false, false, true, null, false)[0].range;
+        const { startLineNumber, startColumn } = model.findMatches('securityContext:', false, false, true, null, false)[0].range;
         const editor = globalThis.testMonaco.getEditors().find(editor => editor.getModel() === model);
         editor.setPosition({ lineNumber: startLineNumber, column: startColumn + 1 });
         editor.revealLineInCenter(startLineNumber);
@@ -133,25 +150,66 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
       const stream = await file.createReadStream();
       const chunks = [];
       for await (const chunk of stream) chunks.push(chunk);
-      return { name: file.suggestedFilename(), text: Buffer.concat(chunks).toString() };
+      const bytes = Buffer.concat(chunks);
+      return { name: file.suggestedFilename(), text: bytes.toString(), file };
     }
 
-    await chooser.selectOption('argo-cd');
-    const exportActions = page.getByLabel('Export active format');
-    assert.deepEqual(await exportActions.getByRole('button').allTextContents(), ['Copy', 'Download']);
-    const installCommands = page.getByLabel('Install commands');
-    const values = await download('Download');
-    assert.equal(values.name, 'argo-cd-values.yaml');
-    assert.match(values.text, /^# helm repo add argo /);
-    assert.match(values.text, /helm install argo-cd argo\/argo-cd --version 10\.17\.1/);
-    assert.match(values.text, /Indentation groups settings/);
-    assert.match(values.text, /argocd admin initial-password/);
-    for (const command of (await installCommands.textContent()).split('\n')) {
-      assert.ok(values.text.includes('# ' + command));
+    async function copy(label) {
+      await page.getByRole('button', { name: label, exact: true }).click();
+      await page.getByText('Copied to clipboard.').waitFor();
+      return page.evaluate(() => navigator.clipboard.readText());
     }
-    await formatControl.selectOption('manifests');
+
+    const installCommands = page.getByLabel('Install commands');
+    const exportActions = page.getByLabel('Export active format');
+    const checksums = readFileSync(new URL('../backend/chart-checksums.txt', import.meta.url), 'utf8');
+    for (const [tool, version] of [['prometheus', '29.45.1'], ['argo-cd', '10.17.1']]) {
+      await chooser.selectOption(tool);
+      await formatControl.selectOption('values');
+      const values = await copy('Copy values');
+      const bundle = await download('Download Helm bundle');
+      assert.equal(bundle.name, `${tool}-helm-bundle.zip`);
+      const scratch = mkdtempSync(join(tmpdir(), 'kcb-browser-bundle-'));
+      try {
+        const filename = `${tool}-${version}.tgz`;
+        execFileSync('unzip', ['-q', await bundle.file.path(), '-d', scratch]);
+        assert.equal(readFileSync(join(scratch, `${tool}-values.yaml`), 'utf8'), values);
+        const hash = createHash('sha256').update(readFileSync(join(scratch, filename))).digest('hex');
+        assert.ok(checksums.includes(`${hash}  ${filename}`));
+        const install = await installCommands.textContent();
+        const readme = readFileSync(join(scratch, 'README.txt'), 'utf8');
+        assert.ok(values.startsWith('# ' + install + '\n'));
+        assert.ok(readme.startsWith(install + '\n'));
+        assert.match(values, /Indentation groups settings/);
+        assert.match(readme, /After install:/);
+        assert.match(readme, /^kubectl .*port-forward/m);
+        if (tool === 'argo-cd') assert.match(readme, /argocd admin initial-password/);
+        execFileSync('helm', ['template', tool, './' + filename, '-f', `${tool}-values.yaml`], {
+          cwd: scratch, stdio: ['ignore', 'ignore', 'pipe'], env: { ...process.env, HELM_CONFIG_HOME: scratch, HELM_CACHE_HOME: scratch, HELM_DATA_HOME: scratch },
+        });
+      } finally {
+        rmSync(scratch, { recursive: true, force: true });
+      }
+      await formatControl.selectOption('manifests');
+      const yaml = await download('Download');
+      assert.equal(yaml.name, `${tool}-manifests.yaml`);
+      assert.equal(yaml.text, await copy('Copy'));
+      assert.ok(yaml.text.startsWith('# ' + (await installCommands.textContent())));
+      assert.match(yaml.text, /# After install:/);
+      assert.match(yaml.text, /# kubectl .*port-forward/);
+      for (const field of ['apiVersion', 'labels', 'readinessProbe', 'livenessProbe', 'securityContext', 'resources', 'rules', 'apiGroups']) {
+        assert.match(yaml.text, new RegExp('^ *# Why: .+\\n *(?:- )?' + field + ':', 'm'), field);
+      }
+      if (tool === 'prometheus') {
+        for (const field of ['hostNetwork', 'hostPID', 'storage']) {
+          assert.match(yaml.text, new RegExp('^ *# Why: .+\\n *(?:- )?' + field + ':', 'm'), field);
+        }
+      } else {
+        assert.match(yaml.text, /# argocd admin initial-password/);
+      }
+    }
     await page.getByText('CRD schemas', { exact: true }).waitFor();
-    assert.equal(await page.locator('details').getAttribute('open'), null);
+    assert.equal(await page.locator('details[id="component-CRD schemas"]').getAttribute('open'), null);
     assert.deepEqual(await exportActions.getByRole('button').allTextContents(), ['Copy', 'Download']);
     const comparison = page.getByRole('button', { name: 'Compare Helm and Kubernetes YAML manifest' });
     await comparison.click();

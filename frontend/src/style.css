@@ -126,10 +126,6 @@ main:has(.builder-comparing) {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
 }
 
-.configuration-selection select {
-  max-width: 100%;
-}
-
 .preset-description {
   grid-column: 1 / -1;
 }
@@ -155,11 +151,74 @@ main:has(.builder-comparing) {
   background: #f3f6fb;
 }
 
-.builder-output [aria-label="Export active format"] button + button {
-  margin-inline-start: 0.5rem;
-}
-
 .builder-output .compare-toggle {
   display: block;
   margin-top: 0;
+}
+
+.configuration-selection label {
+  min-width: 0;
+}
+
+.configuration-selection select {
+  width: 100%;
+  min-width: 0;
+}
+
+.export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.export-actions button,
+.builder-output .compare-toggle {
+  padding: 0.55rem 0.9rem;
+  min-height: 2.5rem;
+  font: inherit;
+  font-weight: 600;
+  color: #153763;
+  background: #eef4ff;
+  border: 1px solid #8295af;
+  border-radius: 0.4rem;
+  cursor: pointer;
+}
+
+.export-actions button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.preview .monaco-editor .sticky-widget,
+.preview .monaco-editor .sticky-widget-line-numbers,
+.preview .monaco-editor .sticky-widget-lines {
+  background-color: #f1f5fb;
+}
+
+.preview .monaco-editor .sticky-widget {
+  border-bottom: 1px solid #8295af;
+}
+
+.builder-output details {
+  margin-block: 0.5rem;
+  border: 1px solid #d5dfed;
+  border-radius: 0.4rem;
+}
+
+.builder-output summary {
+  padding: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.builder-output [aria-label="Included components"] button {
+  margin: 0.15rem 0;
+  padding: 0.25rem;
+  color: #153763;
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+  font: inherit;
+  cursor: pointer;
 }

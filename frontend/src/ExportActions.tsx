@@ -1,23 +1,28 @@
 import { useState } from 'react';
 
-export function ExportActions({ text, filename, label = "Download", copyLabel = "Copy", load }: { text: string; filename: string; label?: string; copyLabel?: string; load?: () => Promise<string> }) {
+export function ExportActions({ text, filename, loadBundle }: {
+  text: string;
+  filename: string;
+  loadBundle?: () => Promise<Blob>;
+}) {
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(load ? await load() : text);
+      await navigator.clipboard.writeText(text);
       setMessage('Copied to clipboard.');
     } catch {
-      setMessage('Could not copy. Use Download to save the YAML.');
+      setMessage('Could not copy. Use Download to save the configuration.');
     }
   }
 
   async function download() {
     setBusy(true);
+    setMessage('');
     try {
-      const output = load ? await load() : text;
-      const url = URL.createObjectURL(new Blob([output], { type: 'text/yaml;charset=utf-8' }));
+      const output = loadBundle ? await loadBundle() : new Blob([text], { type: 'text/yaml;charset=utf-8' });
+      const url = URL.createObjectURL(output);
       const link = document.createElement('a');
       link.href = url;
       link.download = filename;
@@ -31,9 +36,9 @@ export function ExportActions({ text, filename, label = "Download", copyLabel = 
   }
 
   return (
-    <div aria-label="Export active format">
-      <button type="button" disabled={!text} onClick={copy}>{copyLabel}</button>
-      <button type="button" disabled={!text || busy} onClick={download}>{label}</button>
+    <div className="export-actions" aria-label="Export active format">
+      <button type="button" disabled={!text} onClick={copy}>{loadBundle ? 'Copy values' : 'Copy'}</button>
+      <button type="button" disabled={!text || busy} onClick={download}>{loadBundle ? 'Download Helm bundle' : 'Download'}</button>
       <span role="status">{message}</span>
     </div>
   );

@@ -10,7 +10,7 @@ function App() {
     selectConfiguration(platform.id, kubernetesVersions[0], tools[0].id),
   );
 
-  const [preset, setPreset] = useState<Preset>('full');
+  const [preset, setPreset] = useState<Preset>('minimal');
   const activePreset = configuration.tool.id === 'prometheus' ? preset : 'full';
 
   return (
@@ -25,7 +25,7 @@ function App() {
           )}>
             <option value={platform.id}>{platform.name}</option>
           </select>
-          <small>Target cluster platform. Example K3s.</small>
+          <small>Target cluster platform..</small>
         </label>
         <label>
           Kubernetes version
@@ -34,7 +34,7 @@ function App() {
           )}>
             {kubernetesVersions.map(version => <option key={version}>{version}</option>)}
           </select>
-          <small>Version running on your cluster. Example {kubernetesVersions[0]}.</small>
+          <small>Version running on your cluster..</small>
         </label>
         <label>
           Tool
@@ -43,7 +43,7 @@ function App() {
           )}>
             {tools.map(tool => <option key={tool.id} value={tool.id}>{tool.name}</option>)}
           </select>
-          <small>Chart to configure. Example Prometheus.</small>
+          <small>Chart to configure..</small>
         </label>
         <label>
           Preset
@@ -52,8 +52,8 @@ function App() {
               .map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
           <small>{configuration.tool.id === 'prometheus'
-            ? 'Start with the server alone or add monitoring components. Example Recommended.'
-            : 'Start with the official Argo CD chart settings. Example Full chart defaults.'}</small>
+            ? 'Start with the server alone or add monitoring components..'
+            : 'Start with the official Argo CD chart settings..'}</small>
         </label>
         {configuration.tool.id === 'prometheus' && activePreset === 'recommended' && (
           <small className="preset-description">Includes Alertmanager, kube-state-metrics, and node exporter. Enable Pushgateway for short-lived service-level batch jobs.</small>

@@ -9,6 +9,8 @@ version=$1
 tool=$2
 config=$3
 values_file=${4:-}
+app_url=${KCB_APP_URL:-http://127.0.0.1:8080}
+rollout_timeout=${KCB_ROLLOUT_TIMEOUT:-600s}
 
 case "$version" in
   1.35) expected_context=k3d-kcb-test-135 ;;
@@ -53,10 +55,11 @@ print(json.dumps({"tool": tool, "kubernetesVersion": version, "values": values})
 PYCODE
 )
 curl --fail --silent --show-error -H 'Content-Type: application/json' --data "$payload" \
-  http://127.0.0.1:8080/api/validate |
+  "$app_url/api/validate" |
   python3 -c 'import json,sys; result=json.load(sys.stdin); print(json.dumps(result)); sys.exit(result["status"] != "passed")'
 curl --fail --silent --show-error -H 'Content-Type: application/json' --data "$payload" \
-  http://127.0.0.1:8080/api/render > "$manifest"
+  "$app_url/api/export" |
+  python3 -c 'import json,sys; sys.stdout.write(json.load(sys.stdin)["yaml"])' > "$manifest"
 
 # Each export includes its namespace. Apply the complete export on a fresh
 # cluster before a server dry run, which cannot persist a Namespace.
@@ -69,5 +72,9 @@ if [[ -z "$workloads" ]]; then
   exit 1
 fi
 while IFS= read -r workload; do
-  "${cluster[@]}" -n "$namespace" rollout status "$workload" --timeout=120s
+  if ! "${cluster[@]}" -n "$namespace" rollout status "$workload" --timeout="$rollout_timeout"; then
+    "${cluster[@]}" -n "$namespace" get pods -o wide --request-timeout=15s || true
+    "${cluster[@]}" -n "$namespace" get events --sort-by=.lastTimestamp --request-timeout=15s || true
+    exit 1
+  fi
 done <<< "$workloads"

@@ -16,12 +16,12 @@ Live previews, a component summary, validation results, one copy or download for
 - [x] Offer Minimal (Prometheus server only, best for learning), Recommended, and Full chart defaults using the pinned official Prometheus chart values. Argo CD uses its chart defaults.
 - [x] Give Alertmanager, kube-state-metrics, node exporter, and Pushgateway independent switches in labelled sections.
 - [x] Show the namespace and main Prometheus resources before any add-ons in the YAML export. Each enabled add-on has a labelled section.
-- [x] Show guidance and an example for every customization input.
-- [x] Provide one Template dropdown with Helm chart and YAML manifest. Show Copy and Download for the selected template, with Compare Helm and Kubernetes YAML manifest directly below.
+- [x] Show guidance for customization controls and examples for typed inputs.
+- [x] Provide one Template dropdown with Helm chart + values and YAML manifest. Show Copy and Download for the selected template, with Compare Helm and Kubernetes YAML manifest directly below.
 - [x] Show the pinned install commands in Deploy and put the same commands at the top of the downloaded file.
 - [x] Explain indentation and show each full setting name and its meaning in Helm values.
 - [x] Widen comparison panes, wrap comments, and show one line-number gutter per pane.
-- [x] Summarize included components and their approximate rendered line counts.
+- [x] Summarize included components and link their approximate line counts to collapsible YAML sections.
 - [x] Collapse Argo CD CRDs in the preview and include them in its single-file YAML export.
 
 ## Sources

@@ -7,9 +7,8 @@ import { Preview } from './Preview';
 import { ChartComparison } from './ChartComparison';
 import { ExportActions } from './ExportActions';
 import { ValidationStatus } from './ValidationStatus';
-import { manifestNotes } from './manifest-notes';
 import { manifestComponents } from './manifest-components';
-import { explainManifestField, renderChart } from './render-chart';
+import { explainManifestField, renderExplainedChart } from './render-chart';
 
 export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
   tool: keyof typeof catalogs;
@@ -27,7 +26,9 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
 
   const [format, setFormat] = useState<'values' | 'manifests'>('values');
   const [compare, setCompare] = useState(false);
-  const [manifest, setManifest] = useState({ key: '', current: '', previous: '', notes: new Map<number, string>(), previousNotes: new Map<number, string>(), error: '' });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [jump, setJump] = useState<{ name: string }>();
+  const [manifest, setManifest] = useState({ key: '', current: '', previous: '', error: '' });
   const currentPreview = previewValues(catalog, current);
   const renderKey = JSON.stringify([tool, kubernetesVersion, currentPreview.text]);
 
@@ -35,12 +36,11 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const text = await renderChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
+        const text = await renderExplainedChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
         if (!controller.signal.aborted) {
-          const currentNotes = manifestNotes(manifestComponents(text, tool).workloads);
-          setManifest(({ current, notes }) => ({
+          setManifest(({ current }) => ({
             key: renderKey, current: text, previous: current || text,
-            notes: currentNotes, previousNotes: current ? notes : currentNotes, error: '',
+            error: '',
           }));
         }
       } catch (error) {
@@ -66,23 +66,39 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
 
   const currentManifest = manifest.key === renderKey ? manifest.current : '';
   const valuesExport = [
+    deploymentCommands[tool].bundle,
+    ...exportGuides[tool],
+    'Alternative if you copied only the values and have internet access:',
     ...deploymentCommands[tool].helm,
     'Indentation groups settings under their parent keys. A dotted name shows the full path to a setting.',
-    ...exportGuides[tool],
   ].map(line => '# ' + line).join('\n') + '\n\n' + describeValuesPaths(currentPreview);
-  async function loadExport() {
-    const response = await fetch('/api/export', {
+  async function loadBundle() {
+    const response = await fetch('/api/bundle', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tool, kubernetesVersion, values: currentPreview.text }),
+      body: JSON.stringify({ tool, kubernetesVersion, values: valuesExport }),
     });
     if (!response.ok) throw new Error((await response.text()).trim() || 'Could not prepare the export.');
-    return (await response.json()).yaml as string;
+    return response.blob();
   }
 
   const rendered = useMemo(() => manifestComponents(manifest.current, tool), [manifest.current, tool]);
   const prior = useMemo(() => manifestComponents(manifest.previous, tool), [manifest.previous, tool]);
-  const commands = deploymentCommands[tool][format === 'values' ? 'helm' : 'yaml'];
+  const commands = format === 'values' ? [deploymentCommands[tool].bundle] : deploymentCommands[tool].yaml;
+
+  useEffect(() => {
+    if (!jump) return;
+    const target = document.getElementById(`component-${jump.name}`);
+    target?.scrollIntoView({ block: 'start' });
+    target?.querySelector('summary')?.focus({ preventScroll: true });
+  }, [jump]);
+
+  function jumpToComponent(name: string) {
+    setFormat('manifests');
+    setCompare(false);
+    setOpenSections(open => ({ ...open, [name]: true }));
+    setJump({ name });
+  }
   return (
     <div className={compare ? "builder builder-comparing" : "builder"}>
       <section aria-labelledby="customize" className="step builder-options">
@@ -103,7 +119,7 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
                       <input value={value[group]?.[resource] ?? ''} onChange={event =>
                         update(option.path, { ...value, [group]: { ...value[group], [resource]: event.target.value } })
                       } />
-                      <small>{catalog.notes.fields[`${option.path}.${group}.${resource}`]} Example {resource === 'cpu' ? '250m' : '512Mi'}.</small>
+                      <small>{catalog.notes.fields[`${option.path}.${group}.${resource}`]} Example {group === 'requests' ? (resource === 'cpu' ? '250m' : '512Mi') : (resource === 'cpu' ? '500m' : '1Gi')}.</small>
                     </label>
                   )),
                 )}
@@ -133,7 +149,7 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
                   }}
                 />
               )}
-              <small>{hint ?? note} Example {String(typeof value === 'boolean' ? 'On' : option.comparison ?? option.default)}.</small>
+              <small>{hint ?? note}{typeof value !== 'boolean' && !option.choices && ` Example ${option.comparison ?? option.default}.`}</small>
             </label>
           );
           return addon ? <fieldset key={option.path}><legend>{option.label}</legend>{control}</fieldset> : control;
@@ -153,13 +169,14 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
         <label>
           Template
           <select value={format} onChange={event => setFormat(event.target.value === 'manifests' ? 'manifests' : 'values')}>
-            <option value="values">Helm chart</option>
+            <option value="values">Helm chart + values</option>
             <option value="manifests">YAML manifest</option>
           </select>
-          <small>Format to copy, download, and deploy. Example Helm chart.</small>
+          <small>Format to copy, download, and deploy.</small>
         </label>
         <ExportActions key={format} text={format === 'values' ? valuesExport : currentManifest}
-          filename={`${tool}-${format}.yaml`} load={format === 'manifests' ? loadExport : undefined} />
+          filename={format === 'values' ? `${tool}-helm-bundle.zip` : `${tool}-manifests.yaml`}
+          loadBundle={format === 'values' ? loadBundle : undefined} />
         <button className="compare-toggle" type="button" aria-pressed={compare} onClick={() => setCompare(open => !open)}>
           Compare Helm and Kubernetes YAML manifest
         </button>
@@ -167,8 +184,8 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
         {currentManifest && (
           <div aria-label="Included components">
             <h3>Included components</h3>
-            <ul>{Array.from(rendered.components, ([name, lines]) => (
-              <li key={name}>{name} · about {lines} lines</li>
+            <ul>{rendered.map(({ name, lines }) => (
+              <li key={name}><button type="button" onClick={() => jumpToComponent(name)}>{name} · about {lines} lines</button></li>
             ))}</ul>
           </div>
         )}
@@ -179,15 +196,28 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
         ) : (
           <>
             {manifest.key === renderKey && manifest.error && <p role="alert">{manifest.error}</p>}
-            <Preview explainField={(text, line, signal) => explainManifestField(text, kubernetesVersion, line, signal)}
-              current={{ text: rendered.workloads, notes: manifest.notes }} previous={{ text: prior.workloads, notes: manifest.previousNotes }} />
-            {rendered.schemas && (
-              <details>
-                <summary>CRD schemas</summary>
-                <p>A CustomResourceDefinition registers a new resource type and its validation schema.</p>
-                <pre>{rendered.schemas}</pre>
-              </details>
-            )}
+            {rendered.map((section, index) => {
+              const isSchema = section.name === 'CRD schemas';
+              const open = openSections[section.name] ?? index === 0;
+              return (
+                <details key={section.name} id={`component-${section.name}`} open={open}
+                  onToggle={event => {
+                    const next = event.currentTarget.open;
+                    if (next !== open) setOpenSections(states => ({ ...states, [section.name]: next }));
+                  }}>
+                  <summary>{section.name}</summary>
+                  {open && (isSchema ? (
+                    <>
+                      <p>A CustomResourceDefinition registers a new resource type and its validation schema.</p>
+                      <pre>{section.text}</pre>
+                    </>
+                  ) : (
+                    <Preview explainField={(text, line, signal) => explainManifestField(text, kubernetesVersion, line, signal)}
+                      current={section} previous={prior.find(item => item.name === section.name) ?? section} />
+                  ))}
+                </details>
+              );
+            })}
           </>
         )}
       </section>

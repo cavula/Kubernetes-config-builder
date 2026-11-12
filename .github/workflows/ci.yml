@@ -125,6 +125,16 @@ jobs:
         run: docker compose up -d --build
       - name: Check the UI and offline validation
         run: python3 tests/check-docker-release.py
+      - name: Scan the packaged runtime
+        shell: bash
+        run: |
+          image=$(docker compose config --images)
+          cd "$RUNNER_TEMP"
+          archive=trivy_0.76.2_Linux-64bit.tar.gz
+          curl --fail --silent --show-error --location --remote-name "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/$archive"
+          printf '%s  %s\n' bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf "$archive" | sha256sum --check
+          tar -xzf "$archive" trivy
+          ./trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress "$image"
       - name: Collect logs and stop the distribution
         if: always()
         run: |

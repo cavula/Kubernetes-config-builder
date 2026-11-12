@@ -15,27 +15,20 @@ COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 COPY backend/ ./
 RUN go build -trimpath -o /out/kcb . \
-    && GOBIN=/out go install github.com/yannh/kubeconform/cmd/kubeconform@v0.7.0
+    && go build -trimpath -ldflags '-X helm.sh/helm/v4/internal/version.version=v4.3.1' -o /out/helm helm.sh/helm/v4/cmd/helm \
+    && go build -trimpath -ldflags '-X main.version=v0.7.0' -o /out/kubeconform github.com/yannh/kubeconform/cmd/kubeconform
 
 FROM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS assets
-ARG TARGETARCH
 WORKDIR /src
 RUN apt-get update && apt-get install -y --no-install-recommends python3 \
     && rm -rf /var/lib/apt/lists/*
-RUN set -eu; \
-    archive="helm-v4.3.1-linux-${TARGETARCH}.tar.gz"; \
-    curl -fsSLO "https://get.helm.sh/$archive"; \
-    curl -fsSLO "https://get.helm.sh/$archive.sha256sum"; \
-    sha256sum --check "$archive.sha256sum"; \
-    tar -xzf "$archive" "linux-${TARGETARCH}/helm"; \
-    install "linux-${TARGETARCH}/helm" /usr/local/bin/helm
+COPY --from=backend /out/helm /usr/local/bin/helm
 COPY backend/download-charts.sh backend/chart-checksums.txt backend/download-schemas.py backend/schema-checksums.txt backend/
 RUN ./backend/download-charts.sh && python3 backend/download-schemas.py \
     && cd .runtime/schemas && sha256sum --check --strict /src/backend/schema-checksums.txt
 
 FROM scratch
 COPY --from=backend /out/ /usr/local/bin/
-COPY --from=assets /usr/local/bin/helm /usr/local/bin/helm
 COPY --from=assets /src/.runtime/ /app/assets/
 COPY --from=frontend /src/frontend/dist/ /app/web/
 USER 65532:65532

@@ -1,6 +1,6 @@
 # Standalone Prometheus usage templates
 
-Proposed for approval. These templates target the existing standalone Prometheus chart 29.45.1, which packages Prometheus v3.16.0. Prometheus Operator is a separate future tool.
+Approved by Charan. These templates target the existing standalone Prometheus chart 29.45.1, which packages Prometheus v3.16.0. Prometheus Operator is a separate future tool.
 
 ## Annotated metrics Service
 
@@ -46,8 +46,8 @@ Preserve existing rule groups when merging the fragment because Helm replaces li
 
 ## Acceptance criteria
 
-- [ ] Each template has form fields with examples and short YAML. Learning mode explains every YAML line in plain words.
-- [ ] Validate the Service against Kubernetes' official schema and validate the two Helm fragments against the pinned chart and rendered Prometheus configuration or rule file.
+- [x] Each template has form fields with examples and short YAML. Learning mode explains every YAML line in plain words.
+- [x] Validate the Service against Kubernetes' official schema and validate the two Helm fragments against the pinned chart and rendered Prometheus configuration or rule file.
 - [ ] Each K3s test uses the generated output through its intended entry point and checks the target or alert behavior.
 
 ## Verification and sources
@@ -60,3 +60,7 @@ The pinned archive's `values.yaml` and `templates/cm.yaml` were inspected. A loc
 - [Prometheus scrape configuration](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#scrape_config)
 - [Prometheus alerting rules](https://prometheus.io/docs/prometheus/latest/configuration/alerting_rules/)
 - [Prometheus rule tests](https://prometheus.io/docs/prometheus/latest/configuration/unit_testing_rules/)
+
+Both Helm values downloads begin with a comment identifying the file as an addition to an existing release and the exact pinned `helm upgrade` command. Keep these instructions in Compact as well. For rules, merge existing groups into the downloaded file before upgrading.
+
+[Helm upgrade reference](https://helm.sh/docs/helm/helm_upgrade/)

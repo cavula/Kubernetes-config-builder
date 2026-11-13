@@ -6,6 +6,7 @@ if [[ $# != 1 ]]; then
   exit 2
 fi
 
+timeout=${KCB_ARGO_USAGE_TIMEOUT:-600s}
 root=$(cd "$(dirname "$0")/.." && pwd)
 cluster=(kubectl --kubeconfig "$1")
 context=$("${cluster[@]}" config current-context)
@@ -15,7 +16,7 @@ if [[ "$context" != k3d-kcb-test-137-fresh || "$endpoint" != https://127.0.0.1:*
   exit 2
 fi
 "${cluster[@]}" get --raw /version | python3 -c 'import json,sys; assert json.load(sys.stdin)["gitVersion"].startswith("v1.37.")'
-"${cluster[@]}" -n argocd rollout status deployment/argo-cd-argocd-applicationset-controller --timeout=300s
+"${cluster[@]}" -n argocd rollout status deployment/argo-cd-argocd-applicationset-controller --timeout="$timeout"
 
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
@@ -52,6 +53,6 @@ for env in dev staging; do
   destination=$("${cluster[@]}" -n argocd get "application/usage-envs-$env" -o jsonpath='{.spec.destination.namespace}')
   [[ "$destination" == "usage-$env" ]]
 done
-"${cluster[@]}" -n argocd wait application/usage-guestbook --for=jsonpath='{.status.sync.status}'=Synced --timeout=300s
-"${cluster[@]}" -n argocd wait application/usage-guestbook --for=jsonpath='{.status.health.status}'=Healthy --timeout=300s
-"${cluster[@]}" -n usage-guestbook rollout status deployment/guestbook-ui --timeout=300s
+"${cluster[@]}" -n argocd wait application/usage-guestbook --for=jsonpath='{.status.sync.status}'=Synced --timeout="$timeout"
+"${cluster[@]}" -n argocd wait application/usage-guestbook --for=jsonpath='{.status.health.status}'=Healthy --timeout="$timeout"
+"${cluster[@]}" -n usage-guestbook rollout status deployment/guestbook-ui --timeout="$timeout"

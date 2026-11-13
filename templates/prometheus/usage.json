@@ -1,0 +1,178 @@
+{
+  "service-scrape": {
+    "label": "Annotated metrics Service",
+    "description": "Expose an existing workload’s metrics to the chart’s default Service discovery job.",
+    "fields": [
+      {
+        "id": "name",
+        "label": "Service name",
+        "description": "Name of the Service that exposes metrics.",
+        "type": "text",
+        "default": "guestbook-metrics",
+        "example": "guestbook-metrics"
+      },
+      {
+        "id": "namespace",
+        "label": "Service namespace",
+        "description": "Namespace of the Pods this Service selects.",
+        "type": "text",
+        "default": "guestbook",
+        "example": "guestbook"
+      },
+      {
+        "id": "selectorKey",
+        "label": "Pod label key",
+        "description": "Label key used to select the metrics Pods.",
+        "type": "text",
+        "default": "app",
+        "example": "app"
+      },
+      {
+        "id": "selectorValue",
+        "label": "Pod label value",
+        "description": "Label value on the metrics Pods.",
+        "type": "text",
+        "default": "guestbook",
+        "example": "guestbook"
+      },
+      {
+        "id": "servicePort",
+        "label": "Service port",
+        "description": "Port clients use to reach the Service.",
+        "type": "number",
+        "default": 8080,
+        "example": "8080"
+      },
+      {
+        "id": "targetPort",
+        "label": "Target port",
+        "description": "Port the selected Pods actually listen on.",
+        "type": "number",
+        "default": 8080,
+        "example": "8080"
+      },
+      {
+        "id": "scheme",
+        "label": "Scheme",
+        "description": "Protocol served by the metrics endpoint.",
+        "type": "select",
+        "default": "http",
+        "choices": [
+          "http",
+          "https"
+        ]
+      },
+      {
+        "id": "metricsPath",
+        "label": "Metrics path",
+        "description": "URL path where the target serves metrics.",
+        "type": "text",
+        "default": "/metrics",
+        "example": "/metrics"
+      }
+    ]
+  },
+  "scrape-job": {
+    "label": "Custom scrape job",
+    "description": "Add a named static target to an existing standalone Prometheus Helm release.",
+    "fields": [
+      {
+        "id": "jobName",
+        "label": "Job name",
+        "description": "Choose a name that is unique in the release’s scrape configuration.",
+        "type": "text",
+        "default": "guestbook-static",
+        "example": "guestbook-static"
+      },
+      {
+        "id": "interval",
+        "label": "Scrape interval",
+        "description": "Time between requests to the target.",
+        "type": "text",
+        "default": "30s",
+        "example": "30s"
+      },
+      {
+        "id": "metricsPath",
+        "label": "Metrics path",
+        "description": "URL path where the target serves metrics.",
+        "type": "text",
+        "default": "/metrics",
+        "example": "/metrics"
+      },
+      {
+        "id": "scheme",
+        "label": "Scheme",
+        "description": "Protocol served by the metrics endpoint.",
+        "type": "select",
+        "default": "http",
+        "choices": [
+          "http",
+          "https"
+        ]
+      },
+      {
+        "id": "target",
+        "label": "Target address",
+        "description": "Host and port reachable from Prometheus.",
+        "type": "text",
+        "default": "guestbook-metrics.guestbook.svc:8080",
+        "example": "guestbook-metrics.guestbook.svc:8080"
+      }
+    ]
+  },
+  "alert-rule": {
+    "label": "Alert rule",
+    "description": "Evaluate a PromQL condition in an existing standalone Prometheus Helm release.",
+    "fields": [
+      {
+        "id": "groupName",
+        "label": "Rule group",
+        "description": "Name of the group Prometheus evaluates together.",
+        "type": "text",
+        "default": "guestbook",
+        "example": "guestbook"
+      },
+      {
+        "id": "alertName",
+        "label": "Alert name",
+        "description": "Name shown when this alert is pending or firing.",
+        "type": "text",
+        "default": "GuestbookDown",
+        "example": "GuestbookDown"
+      },
+      {
+        "id": "expression",
+        "label": "PromQL expression",
+        "description": "Condition Prometheus evaluates for the alert.",
+        "type": "text",
+        "default": "up{job=\"guestbook-static\"} == 0",
+        "example": "up{job=\"guestbook-static\"} == 0"
+      },
+      {
+        "id": "duration",
+        "label": "Duration",
+        "description": "How long the condition must hold before the alert fires.",
+        "type": "text",
+        "default": "5m",
+        "example": "5m"
+      },
+      {
+        "id": "severity",
+        "label": "Severity",
+        "description": "Label to use for routing or display.",
+        "type": "text",
+        "default": "warning",
+        "example": "warning"
+      },
+      {
+        "id": "summary",
+        "label": "Summary",
+        "description": "Short description to show when the alert fires.",
+        "type": "text",
+        "default": "Guestbook metrics endpoint is down",
+        "example": "Guestbook metrics endpoint is down"
+      }
+    ]
+  }
+}

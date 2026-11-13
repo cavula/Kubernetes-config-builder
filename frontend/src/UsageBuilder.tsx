@@ -2,26 +2,27 @@ import { useState } from 'react';
 import { ExportActions } from './ExportActions';
 import { Preview } from './Preview';
 import { ValidationStatus } from './ValidationStatus';
-import { defaultUsageValues, renderUsage, usageTemplates, type UsageTemplateId, type UsageValues } from './usage-values';
+import { defaultUsageValues, renderUsage, usageFilename, usageTemplateIds, usageTemplates, type UsageTemplateId, type UsageTool, type UsageValues } from './usage-values';
 
-export function UsageBuilder({ kubernetesVersion }: { kubernetesVersion: string }) {
-  const [id, setId] = useState<UsageTemplateId>('application');
+export function UsageBuilder({ tool, kubernetesVersion }: { tool: UsageTool; kubernetesVersion: string }) {
+  const ids = usageTemplateIds[tool];
+  const [id, setId] = useState<UsageTemplateId>(ids[0]);
   return (
     <>
       <section className="step">
         <label>
           Usage template
           <select value={id} onChange={event => setId(event.target.value as UsageTemplateId)}>
-            {Object.entries(usageTemplates).map(([key, template]) => <option key={key} value={key}>{template.label}</option>)}
+            {ids.map(key => <option key={key} value={key}>{usageTemplates[key].label}</option>)}
           </select>
         </label>
       </section>
-      <UsageForm key={id} id={id} kubernetesVersion={kubernetesVersion} />
+      <UsageForm key={id} id={id} tool={tool} kubernetesVersion={kubernetesVersion} />
     </>
   );
 }
 
-function UsageForm({ id, kubernetesVersion }: { id: UsageTemplateId; kubernetesVersion: string }) {
+function UsageForm({ id, tool, kubernetesVersion }: { id: UsageTemplateId; tool: UsageTool; kubernetesVersion: string }) {
   const template = usageTemplates[id];
   const [learning, setLearning] = useState(true);
   const [values, setValues] = useState(() => {
@@ -45,6 +46,13 @@ function UsageForm({ id, kubernetesVersion }: { id: UsageTemplateId; kubernetesV
             {field.label}
             {field.type === 'boolean' ? (
               <input type="checkbox" checked={values.current[field.id] === true} onChange={event => update(field.id, event.target.checked)} />
+            ) : field.type === 'select' ? (
+              <select value={String(values.current[field.id])} onChange={event => update(field.id, event.target.value)}>
+                {field.choices.map(choice => <option key={choice}>{choice}</option>)}
+              </select>
+            ) : field.type === 'number' ? (
+              <input type="number" min={1} max={65535} value={String(values.current[field.id])}
+                onChange={event => update(field.id, event.target.value === '' ? '' : event.target.valueAsNumber)} />
             ) : (
               <input type="text" value={String(values.current[field.id])} onChange={event => update(field.id, event.target.value)} />
             )}
@@ -53,7 +61,7 @@ function UsageForm({ id, kubernetesVersion }: { id: UsageTemplateId; kubernetesV
         ))}
       </section>
       <section className="step builder-output" aria-labelledby="usage-preview">
-        <h2 id="usage-preview">Usage YAML</h2>
+        <h2 id="usage-preview">{id === 'scrape-job' || id === 'alert-rule' ? 'Helm values' : 'Usage YAML'}</h2>
         <label>
           Comment density
           <select value={learning ? 'learning' : 'compact'} onChange={event => setLearning(event.target.value === 'learning')}>
@@ -61,8 +69,8 @@ function UsageForm({ id, kubernetesVersion }: { id: UsageTemplateId; kubernetesV
             <option value="compact">Compact</option>
           </select>
         </label>
-        <ExportActions text={current.text} filename={`${id}.yaml`} />
-        <ValidationStatus tool="argo-cd" kubernetesVersion={kubernetesVersion} values={current.text} usage />
+        <ExportActions text={current.text} filename={usageFilename(id)} />
+        <ValidationStatus tool={tool} kubernetesVersion={kubernetesVersion} values={current.text} usageTemplate={id} />
         <Preview current={current} previous={previous} />
       </section>
     </div>

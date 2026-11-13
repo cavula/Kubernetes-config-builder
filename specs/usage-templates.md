@@ -1,6 +1,6 @@
 # Usage templates
 
-Charan approved the three Argo CD templates and the default **Use the tool** view on November 13, 2026. Keep the existing installation feature under **Install the tool**. Standalone Prometheus proposals require approval before implementation. Prometheus Operator is deferred as a separate tool.
+Charan approved the three Argo CD templates and the default **Use the tool** view on November 13, 2026. Keep the existing installation feature under **Install the tool**. Charan approved the standalone Prometheus templates in the linked spec. Prometheus Operator is deferred as a separate tool.
 
 Each template has form fields with descriptions and examples and produces short YAML with a plain-language explanation for every emitted YAML line in Learning mode. Validate against the official version-matched CRD schema. Each integration test applies the exported YAML on dedicated K3s with the relevant CRDs and controllers installed, then checks the expected controller behavior. Keep fixtures scoped to test namespaces.
 

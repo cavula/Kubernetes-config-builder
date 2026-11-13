@@ -67,9 +67,7 @@ function App() {
         )}
       </section>
       {mode === 'install' ? <Builder key={`${configuration.tool.id}/${activePreset}`} preset={activePreset} tool={configuration.tool.id} chartVersion={configuration.tool.chartVersion} kubernetesVersion={configuration.kubernetesVersion} />
-        : configuration.tool.id === 'argo-cd'
-          ? <UsageBuilder kubernetesVersion={configuration.kubernetesVersion} />
-          : <p>Prometheus usage templates are pending review.</p>}
+        : <UsageBuilder key={configuration.tool.id} tool={configuration.tool.id} kubernetesVersion={configuration.kubernetesVersion} />}
     </main>
   );
 }

@@ -74,6 +74,34 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
       const compact = await compactDownload;
       assert.doesNotMatch(readFileSync(await compact.path(), 'utf8'), /^\s*#/m);
     }
+    await page.getByRole('combobox', { name: /^Tool/ }).selectOption('prometheus');
+    assert.deepEqual(await usageTemplate.locator('option').evaluateAll(options => options.map(option => option.value)),
+      ['service-scrape', 'scrape-job', 'alert-rule']);
+    for (const id of ['service-scrape', 'scrape-job', 'alert-rule']) {
+      await usageTemplate.selectOption(id);
+      await page.getByText(id === 'service-scrape'
+        ? 'Kubernetes schema validation passed.'
+        : 'Helm render and Prometheus configuration validation passed.').waitFor();
+      const pendingDownload = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download', exact: true }).click();
+      const download = await pendingDownload;
+      const learning = readFileSync(await download.path(), 'utf8');
+      const lines = learning.trimEnd().split('\n');
+      for (const [index, line] of lines.entries()) {
+        if (line.trim() && !line.trimStart().startsWith('#')) {
+          assert.match(lines[index - 1] ?? '', /^\s*# .+/);
+        }
+      }
+      if (id === 'service-scrape') {
+        assert.equal(download.suggestedFilename(), 'service-scrape.yaml');
+        assert.match(learning, /^kind: Service$/m);
+        assert.match(learning, /prometheus.io\/scrape: "true"/);
+      } else {
+        assert.equal(download.suggestedFilename(), `prometheus-${id}-values.yaml`);
+        assert.match(learning, /^# Helm values to add to an existing standalone Prometheus install\. Do not use kubectl apply\./);
+        assert.ok(learning.includes(`--version 29.45.1 --reuse-values --values ${download.suggestedFilename()}\n`));
+      }
+    }
     await page.getByRole('button', { name: 'Install the tool' }).click();
     await page.getByRole('combobox', { name: /^Tool/ }).selectOption('prometheus');
     await page.locator('.view-line').first().waitFor();

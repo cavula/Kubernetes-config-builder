@@ -4,7 +4,7 @@
 
 A local dashboard for building and learning Kubernetes configurations. Choose K3s 1.35, 1.36, or 1.37 and configure one tool at a time. The app uses Prometheus chart 29.45.1 and Argo CD chart 10.17.1.
 
-**Use the tool** opens the Argo CD Application, AppProject, and ApplicationSet templates. Choose a template, fill in its settings, and copy or download the YAML. Learning mode explains each YAML line, and validation checks the pinned Argo CD CRD schema. Choose **Install the tool** for the existing Helm and YAML installation workflow.
+**Use the tool** opens the Argo CD Application, AppProject, and ApplicationSet templates, plus standalone Prometheus Service annotations, a custom scrape job, and an alert rule. Choose a template, fill in its settings, and copy or download the YAML. Learning mode explains each YAML line, and validation checks the pinned Argo CD CRD schemas, the Kubernetes Service schema, or the rendered Prometheus configuration with promtool. Choose **Install the tool** for the existing Helm and YAML installation workflow.
 
 ## Run with Docker
 
@@ -27,6 +27,8 @@ Install Node.js 26.13.1, Go 1.27.4, Helm, kubeconform, and Python 3. If you use 
 ```sh
 ./backend/download-charts.sh
 python3 backend/download-schemas.py
+./backend/build-promtool.sh "$PWD/.runtime/prometheus-tools"
+export PATH="$PWD/.runtime/prometheus-tools:$PATH"
 ```
 
 Start the renderer from the project root.
@@ -50,6 +52,8 @@ Open [http://localhost:5173](http://localhost:5173) or the URL printed by Vite. 
 
 Download the usage YAML and apply it to a cluster where Argo CD is installed. For example, run `kubectl apply -f application.yaml`. To use ApplicationSet with the installation builder, choose **Full chart defaults** so the controller is running.
 
+For standalone Prometheus, apply the annotated Service with kubectl. For a custom scrape job or alert rule, follow the pinned Helm upgrade command at the top of the values download. Merge existing alert groups into the alert values file before upgrading.
+
 ## Apply an installation export
 
 In **Deploy**, choose **Helm chart + values** and click **Download Helm bundle**. Unzip the bundle and run the install command in its README. The ZIP includes the verified pinned chart and its dependencies, so Helm needs no chart repository. The cluster still needs access to the container images or must already have them. **Copy values** copies the commented values file.
@@ -63,6 +67,7 @@ For Prometheus, run `kubectl apply --server-side -f prometheus-manifests.yaml`. 
 - Run `npm test` and `npm run build` from `frontend`.
 - Run `go test ./...` from `backend` after downloading the charts.
 - Run `./tests/check-argo-usage.sh <dedicated-test-kubeconfig>` with the pinned Argo CD chart and its ApplicationSet controller running on a fresh local K3s 1.37 test cluster.
+- Run `./tests/check-prometheus-usage.sh <dedicated-test-kubeconfig>` with a dedicated local K3s 1.37 Prometheus test cluster.
 - Follow the [local K3s deployment instructions](docs/local-rendering.md#local-k3s-deploy-checks) for server-side dry runs and rollout checks.
 
 GitHub Actions verifies chart checksums, runs the frontend and Go checks, and runs Helm lint and strict kubeconform across the supported Kubernetes versions on every push. You can also start CI manually from the Actions tab.

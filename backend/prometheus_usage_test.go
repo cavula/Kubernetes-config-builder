@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -75,6 +76,58 @@ func TestPrometheusUsageValidation(t *testing.T) {
 				t.Fatalf("expected a promtool error, got %+v", result)
 			}
 		})
+	}
+}
+
+func TestPrometheusUsageAlertEvaluates(t *testing.T) {
+	binary, err := exec.LookPath("promtool")
+	if err != nil {
+		t.Skip("Build pinned promtool to run the alert evaluation integration test.")
+	}
+	req := renderRequest{Tool: "prometheus", KubernetesVersion: "1.37", UsageTemplate: "alert-rule", Values: validAlertUsage}
+	manifest, err := render(context.Background(), pinnedChartFixtures(t), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	config, err := renderedPrometheusConfig(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(config["prometheus.yml"], "/etc/config/alerting_rules.yml") {
+		t.Fatal("the chart configuration did not load the generated alert rule file")
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "alerting_rules.yml"), []byte(config["alerting_rules.yml"]), 0600); err != nil {
+		t.Fatal(err)
+	}
+	fixture := `rule_files:
+  - alerting_rules.yml
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="sample-job"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SampleDown
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: SampleDown
+        exp_alerts:
+          - exp_labels:
+              job: sample-job
+              severity: warning
+            exp_annotations:
+              summary: Sample is down
+`
+	if err := os.WriteFile(filepath.Join(dir, "test.yml"), []byte(fixture), 0600); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command(binary, "test", "rules", "test.yml")
+	cmd.Dir = dir
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("test rendered rule: %v\n%s", err, output)
 	}
 }
 

@@ -129,6 +129,11 @@ func collectExportNotes(node *yaml.Node, id resourceID, path []string, notes map
 				continue
 			}
 			note := fieldWhy(id, fieldPath, value, "")
+			if id.Kind == "Deployment" && len(fieldPath) == 2 && fieldPath[0] == "spec" &&
+				key.Value == "replicas" && value.Value == "0" &&
+				strings.HasSuffix(id.Name, "-argocd-applicationset-controller") {
+				note = "The chart always renders this Deployment. Zero replicas keeps the ApplicationSet controller stopped."
+			}
 			if len(fieldPath) == 1 && (key.Value == "metadata" || (key.Value == "spec" && id.Kind != "Service")) {
 				note = ""
 			}

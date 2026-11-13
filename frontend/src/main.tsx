@@ -48,13 +48,12 @@ function App() {
         <label>
           Preset
           <select value={activePreset} onChange={event => setPresetsByTool({ ...presetsByTool, [configuration.tool.id]: event.target.value as Preset })}>
-            {Object.entries(presets)
+            {Object.entries(presets).filter(([id]) => configuration.tool.id !== 'argo-cd' || id !== 'recommended')
               .map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
           <small>{configuration.tool.id === 'prometheus'
             ? 'Start with the server alone or add monitoring components.'
             : activePreset === 'minimal' ? 'Core components only. Dex, notifications, and ApplicationSet are off.'
-            : activePreset === 'recommended' ? 'Includes ApplicationSet. Dex and notifications are off.'
             : 'Includes Dex, notifications, and ApplicationSet.'}</small>
         </label>
         {configuration.tool.id === 'prometheus' && activePreset === 'recommended' && (

@@ -164,7 +164,7 @@ export function presetValues(catalog: Catalog, preset: Preset) {
 
 
 export function argoPresetCatalog(catalog: Catalog, preset: Preset): Catalog {
-  const overrides: Record<string, boolean | number> = argoPresets[preset];
+  const overrides: Record<string, boolean | number> = argoPresets[preset === 'minimal' ? 'minimal' : 'full'];
   const editablePaths = new Set(catalog.options.map(option => option.path));
   return {
     ...catalog,

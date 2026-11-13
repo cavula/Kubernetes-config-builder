@@ -4,10 +4,5 @@
     "notifications.enabled": false,
     "applicationSet.replicas": 0
   },
-  "recommended": {
-    "dex.enabled": false,
-    "notifications.enabled": false,
-    "applicationSet.replicas": 1
-  },
   "full": {}
 }

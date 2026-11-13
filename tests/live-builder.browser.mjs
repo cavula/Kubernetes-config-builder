@@ -221,7 +221,8 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
       }
     }
     assert.equal(await preset.inputValue(), 'minimal');
-    for (const name of ['minimal', 'recommended', 'full']) {
+    assert.deepEqual(await preset.locator('option').evaluateAll(options => options.map(option => option.value)), ['minimal', 'full']);
+    for (const name of ['minimal', 'full']) {
       await preset.selectOption(name);
       await formatControl.selectOption('manifests');
       const schemas = page.locator('details[id="component-CRD schemas"]');

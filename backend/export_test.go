@@ -213,7 +213,7 @@ func TestArgoPresetLearningExports(t *testing.T) {
 	if err := json.Unmarshal(data, &presets); err != nil {
 		t.Fatal(err)
 	}
-	for _, preset := range []string{"minimal", "recommended", "full"} {
+	for _, preset := range []string{"minimal", "full"} {
 		t.Run(preset, func(t *testing.T) {
 			values := map[string]map[string]any{}
 			for path, value := range presets[preset] {
@@ -236,6 +236,9 @@ func TestArgoPresetLearningExports(t *testing.T) {
 			learning := export.Manifests
 			lines := strings.Count(learning, "\n")
 			t.Logf("Learning YAML excluding CRDs: %d lines", lines)
+			if preset == "minimal" && !strings.Contains(learning, "The chart always renders this Deployment. Zero replicas keeps the ApplicationSet controller stopped.") {
+				t.Error("Minimal must explain why the zero-replica Deployment is present")
+			}
 			if preset == "minimal" && lines > 3600 {
 				t.Errorf("Minimal exceeds 3600 lines: %d", lines)
 			}

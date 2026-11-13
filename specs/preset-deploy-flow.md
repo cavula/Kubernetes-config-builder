@@ -38,3 +38,7 @@ Live previews, a component summary, validation results, one copy or download for
 - [x] Measure Learning YAML lines excluding CRD documents. Enforce a Minimal line budget.
 
 On Kubernetes 1.37, Learning YAML including the header and excluding CRD documents is 3,442 lines for Minimal, 3,442 for Recommended, and 4,220 for Full. The Minimal budget is 3,600 lines. [Pinned chart values](https://github.com/argoproj/argo-helm/blob/argo-cd-10.17.1/charts/argo-cd/values.yaml)
+
+Argo CD now offers Minimal and Full chart defaults. A zero-replica ApplicationSet Deployment explains why the pinned chart still renders it. The Minimal limit stays at 3,600 lines.
+
+This spec covers the secondary **Install the tool** workflow. See [Usage templates](usage-templates.md) for the primary product direction.

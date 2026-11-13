@@ -2,7 +2,7 @@
 
 ## Overview
 
-A dashboard that helps engineers generate correct Kubernetes configs instantly and helps students learn how those configs work. Users pick a cluster, pick tools, choose options, and watch commented YAML or Helm values update live.
+A dashboard that helps engineers generate correct Kubernetes configs instantly and helps students learn how those configs work. Users choose a tool and generate short, explained templates for using it. Every current and future tool leads with usage templates. The existing installation workflow belongs under the secondary **Install the tool** option.
 
 ## Problem
 
@@ -30,9 +30,9 @@ Engineers who want fast, reliable templates. Students who want to learn by chang
 
 **Auto updates.** MCP based jobs check official GitHub repos, releases, and Artifact Hub every two to four weeks. Changes are summarised, tested, and reviewed before going live. Deprecated or retired tools are flagged with suggested replacements.
 
-## MVP Scope
+## Product Scope
 
-Local app first. K3s only, with Kubernetes 1.37, 1.36, and 1.35 at the initial planning baseline. Include Prometheus and Argo CD, with one tool and one pinned chart per configuration. Include the live builder, YAML and Helm switch with resource-level and field-level comparison, automatic validation, and copy and download of the active format. Build, validate, and export without a live cluster. Run server-side dry run and deployment checks against a dedicated local K3s test cluster.
+Local app first. K3s only, with Kubernetes 1.37, 1.36, and 1.35 at the initial planning baseline. Start with Argo CD and Prometheus usage templates after Charan approves the template list and separately approves any layout change. Use official schemas and test the generated manifests on dedicated K3s. Preserve one tool and one pinned chart per installation configuration. Include the live builder, YAML and Helm switch with resource-level and field-level comparison, automatic validation, and copy and download of the active format. Build, validate, and export without a live cluster. Run server-side dry run and deployment checks against a dedicated local K3s test cluster.
 
 ## Roadmap
 
@@ -134,7 +134,7 @@ Hosting remains an open question. Where should a hosted dashboard run, and who s
 ## Instructions for the Coding Agent
 
 1. Read this whole file before writing any code.
-2. Build only the MVP Scope. Do not start roadmap items.
+2. Build only the Product Scope. Do not start roadmap items.
 3. For each feature, write a spec in /specs first, then the code, then tests.
 4. Follow the Folder Structure and Tech Stack exactly. Ask before changing either.
 5. Take every template field and explanation from the official project docs or Helm charts. Never invent fields.
@@ -184,6 +184,10 @@ Dates refer to when the correction was made. The Decision Log records the result
 
 | 2026-11-13 | The CRD preview default relied on section order. | The first section opened automatically without explicitly excluding schemas. | Default CRDs to collapsed explicitly and verify each preset in Chromium. |
 
+| 2026-11-13 | Recommended added a running ApplicationSet controller while producing the same number of lines as Minimal. Minimal left the zero-replica Deployment unexplained. | The chart renders the same Deployment and supporting resources at either replica count. | Check each preset’s rendered resources and explain any unavoidable stopped workload. |
+
+| 2026-11-13 | We built installation manifests when Charan wanted templates for using the tools. | The product plan treated installation as the main task. | For every tool, agree on the usage templates first and lead with short, explained usage YAML. Keep installation secondary. |
+
 ## Decision Log
 
 | Date | Decision | Replaces | Affects |
@@ -230,3 +234,6 @@ Dates refer to when the correction was made. The Decision Log records the result
 | 2026-11-12 | Explain Prometheus scrape jobs, per-container probes and mounts, Recreate, ClusterRoleBinding subjects and roleRef, and ClusterIP access in Learning exports. Use singular wording for one replica and allow up to 700 lines for Minimal. | Resource-wide deduplication of probe and mount explanations and 650-line limit | Learning YAML, tests |
 | 2026-11-13 | Keep the ARM64 reloader safety note and scrape jobs explanation in Compact. Release these changes and the post-v0.2.0 Learning fixes as v0.2.1. | Compact omitted both notes | YAML exports, release |
 | 2026-11-13 | Default Argo CD to Minimal with Dex and notifications disabled and ApplicationSet scaled to zero. Recommended enables one ApplicationSet replica. Full uses the pinned chart defaults. Preserve the layout, start CRDs collapsed, and enforce a 3,600-line Minimal Learning budget excluding CRDs. | Argo CD offered Full only | Presets, YAML preview |
+| 2026-11-13 | Keep Argo CD Minimal and Full chart defaults. Explain why ApplicationSet still appears at zero replicas. Keep the 3,600-line limit and require approval before changing Minimal chart values to reduce its size. | Separate Recommended preset with identical rendered size | Presets, Learning export |
+| 2026-11-13 | Keep bundled SSH host keys and network policies in Argo CD Minimal. | Proposed line-count reductions | Argo CD installation presets |
+| 2026-11-13 | Make usage templates primary for every current and future tool. Keep the existing workflow under Install the tool. Get approval for the initial template list before coding and for any layout change before implementation. | Installation as the main product flow | Product scope, usage templates, installation |

@@ -172,12 +172,19 @@ func TestMinimalPrometheusCommentDensity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(compact.YAML, "# Why:") || strings.Contains(compact.YAML, "# Source:") ||
+	if strings.Contains(withoutScrapeJobsNote(compact.YAML), "# Why:") || strings.Contains(compact.YAML, "# Source:") ||
 		!strings.Contains(compact.YAML, "# Component: Prometheus server") ||
 		!strings.Contains(compact.YAML, "# Purpose:") || !strings.Contains(compact.YAML, "# After install:") {
 		t.Fatal("Compact should preserve deployment instructions and component and purpose headers")
 	}
-	if !reflect.DeepEqual(resourceJSON(t, withoutScrapeJobsNote(learning.YAML)), resourceJSON(t, compact.YAML)) {
+	if strings.Count(compact.YAML, "# Why: "+scrapeJobsNote+"\n    scrape_configs:") != 1 {
+		t.Error("Compact must explain scrape_configs exactly once")
+	}
+	if !strings.Contains(compact.YAML, "# v0.95.2 supplies ARM64 images. Chart 29.45.1 defaults to amd64-only v0.95.1.") {
+		t.Error("Compact must retain the reloader ARM64 safety note")
+	}
+
+	if !reflect.DeepEqual(resourceJSON(t, withoutScrapeJobsNote(learning.YAML)), resourceJSON(t, withoutScrapeJobsNote(compact.YAML))) {
 		t.Fatal("comment density changed resource values")
 	}
 }

@@ -64,6 +64,9 @@ func explainExport(manifest string, req renderRequest) (explainedExport, error) 
 			return explainedExport{}, err
 		}
 		notes := make(map[int]string)
+		if req.Tool == "prometheus" && resource.id.Kind == "ConfigMap" {
+			collectScrapeJobsNote(doc.Content[0], notes)
+		}
 		if req.CommentDensity != "compact" {
 			collectExportNotes(doc.Content[0], resource.id, nil, notes, make(map[string]bool))
 		}
@@ -72,7 +75,7 @@ func explainExport(manifest string, req renderRequest) (explainedExport, error) 
 			fmt.Fprintln(&workloads, "# "+note)
 		}
 		for offset, line := range resource.lines {
-			if req.CommentDensity == "compact" && (strings.HasPrefix(strings.TrimSpace(line), "# Source: ") || strings.HasPrefix(strings.TrimSpace(line), "# v0.95.2")) {
+			if req.CommentDensity == "compact" && strings.HasPrefix(strings.TrimSpace(line), "# Source: ") {
 				continue
 			}
 			if note := notes[offset+1]; note != "" {
@@ -93,6 +96,27 @@ func explainExport(manifest string, req renderRequest) (explainedExport, error) 
 
 const scrapeJobsNote = "These jobs tell Prometheus which targets to discover and where to collect metrics."
 
+func collectScrapeJobsNote(doc *yaml.Node, notes map[int]string) {
+	for i := 0; i+1 < len(doc.Content); i += 2 {
+		if doc.Content[i].Value != "data" {
+			continue
+		}
+		data := doc.Content[i+1]
+		for j := 0; j+1 < len(data.Content); j += 2 {
+			key, config := data.Content[j], data.Content[j+1]
+			if key.Value != "prometheus.yml" || config.Style != yaml.LiteralStyle {
+				continue
+			}
+			for offset, line := range strings.Split(config.Value, "\n") {
+				if line == "scrape_configs:" {
+					notes[config.Line+offset+1] = scrapeJobsNote
+					return
+				}
+			}
+		}
+	}
+}
+
 // Export only authored notes. Hover still uses the schema for fields omitted here.
 func collectExportNotes(node *yaml.Node, id resourceID, path []string, notes map[int]string, seen map[string]bool) {
 	switch node.Kind {
@@ -101,23 +125,7 @@ func collectExportNotes(node *yaml.Node, id resourceID, path []string, notes map
 			key, value := node.Content[index], node.Content[index+1]
 			fieldPath := append(path, key.Value)
 			switch key.Value {
-			case "data":
-				if id.Kind == "ConfigMap" && len(path) == 0 {
-					for i := 0; i < len(value.Content); i += 2 {
-						key, config := value.Content[i], value.Content[i+1]
-						if key.Value != "prometheus.yml" || config.Style != yaml.LiteralStyle {
-							continue
-						}
-						for offset, line := range strings.Split(config.Value, "\n") {
-							if line == "scrape_configs:" {
-								notes[config.Line+offset+1] = scrapeJobsNote
-								break
-							}
-						}
-					}
-				}
-				continue
-			case "kind", "stringData", "annotations":
+			case "kind", "data", "stringData", "annotations":
 				continue
 			}
 			note := fieldWhy(id, fieldPath, value, "")

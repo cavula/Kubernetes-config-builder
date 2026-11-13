@@ -4,7 +4,7 @@ Inputs are the existing configuration and the Learning or Compact density. Outpu
 
 - [x] Learning is the default. Short, authored explanations cover key fields and appear once per block and without repeated identical comments within a block. Each container gets its own probe and mount explanations.
 - [x] Explain RBAC permissions using the resource kind and field path. Distinguish API resource types from container capacity.
-- [x] Compact keeps component and purpose headers and deployment instructions. It omits field explanations.
+- [x] Compact keeps component and purpose headers and deployment instructions. It also retains the ARM64 reloader safety note and the one-line scrape jobs explanation.
 - [x] Preview, copy, and download use the selected density. Minimal Prometheus Learning YAML is at most 700 lines.
 - [x] Selection hints end with single periods and the Minimal label fits.
 

@@ -208,7 +208,10 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
         const compact = await download('Download');
         assert.equal(compact.text, await copy('Copy'));
         assert.match(compact.text, /# Purpose:/);
-        assert.doesNotMatch(compact.text, /# Why:|# Source:/);
+        const scrapeNote = '    # Why: These jobs tell Prometheus which targets to discover and where to collect metrics.\n';
+        assert.ok(compact.text.includes(scrapeNote + '    scrape_configs:'));
+        assert.match(compact.text, /# v0\.95\.2 supplies ARM64 images/);
+        assert.doesNotMatch(compact.text.replace(scrapeNote, ''), /# Why:|# Source:/);
         await density.selectOption('learning');
         for (const field of ['hostNetwork', 'hostPID', 'storage']) {
           assert.match(yaml.text, new RegExp('^ *# Why: .+\\n *(?:- )?' + field + ':', 'm'), field);

@@ -178,8 +178,9 @@ Dates refer to when the correction was made. The Decision Log records the result
 | 2026-11-12 | I wrote the export lesson as a permanent rule to lead with Helm values. | I turned feedback about the length and quality of one export into a default for the main interface. | Do not change the main layout without asking Charan first. Use the template selection to determine copy and download output. |
 | 2026-11-12 | Charan received YAML without field-level why comments or the full deployment header. | Preview and export used separate manifest paths, and browser checks covered only the Argo CD download. The exact path used in Charan’s test has not been reproduced. | Use the explained export for preview, clipboard, and file download. Assert the exact clipboard and downloaded contents for both tools, including representative field explanations and the deployment header. |
 | 2026-11-12 | ClusterRole rules described API object types as CPU and memory settings, and exports repeated long schema descriptions. | Explanations matched leaf names and traversed every list entry with a schema fallback. | Match overloaded fields by kind and parent path. Test the downloaded YAML for RBAC wording, duplicate comments, and the Minimal line budget. |
-
 | 2026-11-12 | Learning YAML omitted probe and mount explanations after the first container and used plural wording for a single replica. | Deduplication used the whole resource and replica text assumed a plural count. | Verify comments on each container block and test both replica counts. |
+
+| 2026-11-13 | v0.2.0 was tagged before the final review was confirmed, so later Learning fixes missed that release. | The tag was cut before the review cycle was closed. | Only tag a release after Charan confirms the final review. |
 
 ## Decision Log
 
@@ -225,3 +226,4 @@ Dates refer to when the correction was made. The Decision Log records the result
 | 2026-11-12 | Default YAML to Learning with short authored block explanations. Offer Compact with component and purpose headers plus deployment and safety instructions. Keep detailed field help in hover, remove Helm release wording from YAML, shorten the Minimal label, and fix selection punctuation. | Per-field schema dumps and a single comment density | YAML export, builder |
 | 2026-11-12 | Release the three-step dashboard, presets, YAML comment modes, explained exports, and offline Helm bundle as v0.2.0. | v0.1.0 release | Release notes |
 | 2026-11-12 | Explain Prometheus scrape jobs, per-container probes and mounts, Recreate, ClusterRoleBinding subjects and roleRef, and ClusterIP access in Learning exports. Use singular wording for one replica and allow up to 700 lines for Minimal. | Resource-wide deduplication of probe and mount explanations and 650-line limit | Learning YAML, tests |
+| 2026-11-13 | Keep the ARM64 reloader safety note and scrape jobs explanation in Compact. Release these changes and the post-v0.2.0 Learning fixes as v0.2.1. | Compact omitted both notes | YAML exports, release |

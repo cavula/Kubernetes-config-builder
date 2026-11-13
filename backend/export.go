@@ -91,6 +91,8 @@ func explainExport(manifest string, req renderRequest) (explainedExport, error) 
 	return result, nil
 }
 
+const scrapeJobsNote = "These jobs tell Prometheus which targets to discover and where to collect metrics."
+
 // Export only authored notes. Hover still uses the schema for fields omitted here.
 func collectExportNotes(node *yaml.Node, id resourceID, path []string, notes map[int]string, seen map[string]bool) {
 	switch node.Kind {
@@ -99,11 +101,27 @@ func collectExportNotes(node *yaml.Node, id resourceID, path []string, notes map
 			key, value := node.Content[index], node.Content[index+1]
 			fieldPath := append(path, key.Value)
 			switch key.Value {
-			case "kind", "data", "stringData", "annotations":
+			case "data":
+				if id.Kind == "ConfigMap" && len(path) == 0 {
+					for i := 0; i < len(value.Content); i += 2 {
+						key, config := value.Content[i], value.Content[i+1]
+						if key.Value != "prometheus.yml" || config.Style != yaml.LiteralStyle {
+							continue
+						}
+						for offset, line := range strings.Split(config.Value, "\n") {
+							if line == "scrape_configs:" {
+								notes[config.Line+offset+1] = scrapeJobsNote
+								break
+							}
+						}
+					}
+				}
+				continue
+			case "kind", "stringData", "annotations":
 				continue
 			}
 			note := fieldWhy(id, fieldPath, value, "")
-			if len(fieldPath) == 1 && (key.Value == "metadata" || key.Value == "spec") {
+			if len(fieldPath) == 1 && (key.Value == "metadata" || (key.Value == "spec" && id.Kind != "Service")) {
 				note = ""
 			}
 			if key.Value == "args" && len(path) != 0 && (path[len(path)-1] == "containers" || path[len(path)-1] == "initContainers") {
@@ -114,7 +132,18 @@ func collectExportNotes(node *yaml.Node, id resourceID, path []string, notes map
 					}
 				}
 			}
-			if note != "" && !seen[note] {
+			// Each container needs its own probe and mount explanations.
+			containerBlock := false
+			if len(path) > 0 {
+				switch path[len(path)-1] {
+				case "containers", "initContainers", "ephemeralContainers":
+					switch key.Value {
+					case "readinessProbe", "livenessProbe", "startupProbe", "volumeMounts":
+						containerBlock = true
+					}
+				}
+			}
+			if note != "" && (containerBlock || !seen[note]) {
 				notes[key.Line] = note
 				seen[note] = true
 			}

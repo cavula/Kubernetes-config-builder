@@ -3,8 +3,11 @@ package main
 import (
 	"context"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
@@ -24,20 +27,25 @@ func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
 				!strings.Contains(export.Manifests, "# Why: Use apps/v1 because") {
 				t.Fatal("missing access or API-version explanation")
 			}
-			if !reflect.DeepEqual(resourceJSON(t, raw), resourceJSON(t, export.Manifests+export.CRDs)) {
+			if !reflect.DeepEqual(resourceJSON(t, raw), resourceJSON(t, withoutScrapeJobsNote(export.Manifests+export.CRDs))) {
 				t.Fatal("comments or CRD separation changed the rendered resources")
 			}
-			if !reflect.DeepEqual(resourceJSON(t, raw), resourceJSON(t, export.YAML)) {
+			if !reflect.DeepEqual(resourceJSON(t, raw), resourceJSON(t, withoutScrapeJobsNote(export.YAML))) {
 				t.Fatal("the single-file download must preserve all resources")
 			}
 			for _, resource := range resourcesForTest(t, export.Manifests) {
 				seen := make(map[string]bool)
-				for _, line := range resource.lines {
+				for index, line := range resource.lines {
 					comment := strings.TrimSpace(line)
 					if !strings.HasPrefix(comment, "# Why: ") {
 						continue
 					}
-					if seen[comment] || len(comment) > 160 {
+					nextField := ""
+					if index+1 < len(resource.lines) {
+						nextField, _, _ = strings.Cut(strings.TrimSpace(resource.lines[index+1]), ":")
+					}
+					perContainer := nextField == "readinessProbe" || nextField == "livenessProbe" || nextField == "startupProbe" || nextField == "volumeMounts"
+					if (seen[comment] && !perContainer) || len(comment) > 160 {
 						t.Errorf("%s %s has a repeated or overlong comment: %s", resource.id.Kind, resource.id.Name, comment)
 					}
 					seen[comment] = true
@@ -133,9 +141,32 @@ func TestMinimalPrometheusCommentDensity(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if count := strings.Count(learning.YAML, "\n"); count > 650 {
-		t.Errorf("Minimal Learning YAML has %d lines, want at most 650", count)
+	if count := strings.Count(learning.YAML, "\n"); count > 700 {
+		t.Errorf("Minimal Learning YAML has %d lines, want at most 700", count)
 	}
+	for _, field := range []string{"readinessProbe", "livenessProbe", "startupProbe", "volumeMounts"} {
+		fields := regexp.MustCompile("(?m)^ +"+field+":").FindAllString(learning.YAML, -1)
+		commented := regexp.MustCompile("(?m)^ +# Why: [^\n]+\n +"+field+":").FindAllString(learning.YAML, -1)
+		if len(fields) != len(commented) || (field == "volumeMounts" && len(fields) < 2) {
+			t.Errorf("%s has %d explanations for %d blocks", field, len(commented), len(fields))
+		}
+	}
+	for _, expected := range []string{
+		"# Why: " + scrapeJobsNote + "\n    scrape_configs:",
+		"compete for the same volume.\n  strategy:\n    type: Recreate",
+		"receive these cluster-wide permissions.\nsubjects:",
+		"permissions granted to these subjects.\nroleRef:",
+		"Use port-forward for direct access from your machine.\n  type: \"ClusterIP\"",
+		"Keep one replica running",
+	} {
+		if !strings.Contains(learning.YAML, expected) {
+			t.Errorf("missing explanation %q", expected)
+		}
+	}
+	if strings.Count(learning.YAML, scrapeJobsNote) != 1 {
+		t.Error("expected exactly one scrape jobs explanation")
+	}
+	t.Logf("Minimal Learning YAML has %d lines", strings.Count(learning.YAML, "\n"))
 	req.CommentDensity = "compact"
 	compact, err := explainExport(raw, req)
 	if err != nil {
@@ -146,7 +177,20 @@ func TestMinimalPrometheusCommentDensity(t *testing.T) {
 		!strings.Contains(compact.YAML, "# Purpose:") || !strings.Contains(compact.YAML, "# After install:") {
 		t.Fatal("Compact should preserve deployment instructions and component and purpose headers")
 	}
-	if !reflect.DeepEqual(resourceJSON(t, learning.YAML), resourceJSON(t, compact.YAML)) {
+	if !reflect.DeepEqual(resourceJSON(t, withoutScrapeJobsNote(learning.YAML)), resourceJSON(t, compact.YAML)) {
 		t.Fatal("comment density changed resource values")
+	}
+}
+
+func withoutScrapeJobsNote(manifest string) string {
+	return strings.ReplaceAll(manifest, "    # Why: "+scrapeJobsNote+"\n", "")
+}
+
+func TestReplicaExplanationUsesCorrectNumber(t *testing.T) {
+	for value, expected := range map[string]string{"0": "Keep 0 replicas ", "1": "Keep one replica ", "2": "Keep 2 replicas "} {
+		note := fieldWhy(resourceID{Kind: "Deployment"}, []string{"spec", "replicas"}, &yaml.Node{Value: value}, "")
+		if !strings.HasPrefix(note, expected) {
+			t.Errorf("replicas %s: got %q, want prefix %q", value, note, expected)
+		}
 	}
 }

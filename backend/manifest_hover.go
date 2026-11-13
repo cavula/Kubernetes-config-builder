@@ -101,6 +101,15 @@ func fieldDescription(id resourceID, path []string, schema schemaObject, inherit
 // Reasons summarize the Kubernetes API reference and workload guidance.
 func fieldWhy(id resourceID, path []string, value *yaml.Node, description string) string {
 	key := path[len(path)-1]
+	if id.Kind == "Service" && len(path) == 1 && key == "spec" {
+		explicitType := false
+		for i := 0; i+1 < len(value.Content); i += 2 {
+			explicitType = explicitType || value.Content[i].Value == "type"
+		}
+		if !explicitType {
+			return "The default ClusterIP keeps this Service inside the cluster. Use port-forward for direct local access."
+		}
+	}
 	if len(path) == 1 {
 		switch key {
 		case "apiVersion":
@@ -121,6 +130,26 @@ func fieldWhy(id resourceID, path []string, value *yaml.Node, description string
 			return "Give this " + id.Kind + " a stable identity so Kubernetes can find it and reconcile later applies."
 		case "spec":
 			return "Declare the desired configuration so Kubernetes can reconcile the actual " + id.Kind + " against it."
+		}
+	}
+	if id.Kind == "ClusterRoleBinding" && len(path) == 1 {
+		switch key {
+		case "subjects":
+			return "Identify the users, groups, or service accounts that receive these cluster-wide permissions."
+		case "roleRef":
+			return "Select the ClusterRole that defines the permissions granted to these subjects."
+		}
+	}
+	if len(path) == 2 && path[0] == "spec" {
+		if id.Kind == "Service" && key == "type" && value.Value == "ClusterIP" {
+			return "Keep the Service inside the cluster. Use port-forward for direct access from your machine."
+		}
+		if id.Kind == "Deployment" && key == "strategy" {
+			for i := 0; i+1 < len(value.Content); i += 2 {
+				if value.Content[i].Value == "type" && value.Content[i+1].Value == "Recreate" {
+					return "Stop the old Pods before starting replacements so they do not compete for the same volume."
+				}
+			}
 		}
 	}
 	if (id.Kind == "ClusterRole" || id.Kind == "Role") && path[0] == "rules" {
@@ -168,6 +197,9 @@ func fieldWhy(id resourceID, path []string, value *yaml.Node, description string
 	case "storage":
 		return "Request this capacity so the workload has space for its persistent data."
 	case "replicas":
+		if value.Value == "1" {
+			return "Keep one replica running to meet this configuration’s availability and capacity target."
+		}
 		return "Keep " + value.Value + " replicas running to meet this configuration’s availability and capacity target."
 	case "runAsNonRoot":
 		if value.Value == "true" {

@@ -50,7 +50,7 @@ Open [http://localhost:5173](http://localhost:5173) or the URL printed by Vite. 
 
 In **Deploy**, choose **Helm chart + values** and click **Download Helm bundle**. Unzip the bundle and run the install command in its README. The ZIP includes the verified pinned chart and its dependencies, so Helm needs no chart repository. The cluster still needs access to the container images or must already have them. **Copy values** copies the commented values file.
 
-Choose **YAML manifest** to copy or download the same explained Kubernetes YAML. The file begins with the apply command and after-install steps. Click a component name to open its preview. The Argo CD manifest includes its CRDs, namespace, and Redis initialization Job.
+Choose **YAML manifest** to copy or download the same explained Kubernetes YAML. The file begins with the apply command and after-install steps. Learning adds short explanations for key fields. Choose Compact for component and purpose headers with deployment instructions. Click a component name to open its preview. The Argo CD manifest includes its CRDs, namespace, and Redis initialization Job.
 
 For Prometheus, run `kubectl apply --server-side -f prometheus-manifests.yaml`. The file creates the `monitoring` namespace. Both configuration reloader images use the ARM64-compatible tag recorded in the [Decision Log](AGENTS.md#decision-log).
 

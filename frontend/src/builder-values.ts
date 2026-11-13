@@ -145,7 +145,7 @@ export const prometheusAddons = [
 ] as const;
 
 export const presets = {
-  minimal: 'Minimal (Prometheus server only, best for learning)',
+  minimal: 'Minimal',
   recommended: 'Recommended',
   full: 'Full chart defaults',
 } as const;

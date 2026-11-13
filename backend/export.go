@@ -21,7 +21,7 @@ type explainedExport struct {
 	YAML      string `json:"yaml"`
 }
 
-func explainExport(manifest, schemaDir string, req renderRequest) (explainedExport, error) {
+func explainExport(manifest string, req renderRequest) (explainedExport, error) {
 	var guides map[string][]string
 	if err := json.Unmarshal(exportGuideJSON, &guides); err != nil {
 		return explainedExport{}, err
@@ -35,7 +35,6 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 		return explainedExport{}, err
 	}
 	var header, workloads, crds strings.Builder
-	schemas := make(map[[2]string]schemaObject)
 	for _, command := range commands[req.Tool].YAML {
 		fmt.Fprintln(&header, "# "+command)
 	}
@@ -43,9 +42,10 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 		header.WriteString("# Server-side apply avoids the annotation size limit for Argo CD's large CRDs.\n")
 	}
 	for _, line := range guides[req.Tool] {
-		fmt.Fprintln(&header, "# "+line)
+		if !strings.HasPrefix(line, "These commands assume") {
+			fmt.Fprintln(&header, "# "+line)
+		}
 	}
-	header.WriteString("# Field sources: the pinned chart and Kubernetes API schemas. https://kubernetes.io/docs/reference/kubernetes-api/\n")
 
 	hasCRDs := false
 	for _, resource := range resources {
@@ -53,7 +53,7 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 			hasCRDs = true
 			crds.WriteString("---\n")
 			for _, line := range resource.lines {
-				if !strings.HasPrefix(line, "# Purpose: ") {
+				if !strings.HasPrefix(line, "# Purpose: ") && (req.CommentDensity != "compact" || !strings.HasPrefix(line, "# Source: ")) {
 					fmt.Fprintln(&crds, line)
 				}
 			}
@@ -63,20 +63,19 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 		if err := yaml.Unmarshal([]byte(strings.Join(resource.lines, "\n")), &doc); err != nil {
 			return explainedExport{}, err
 		}
-		key := [2]string{resource.id.APIVersion, resource.id.Kind}
-		schema, found := schemas[key]
-		if !found {
-			schema = schemaForResource(schemaDir, req.KubernetesVersion, resource.id)
-			schemas[key] = schema
-		}
 		notes := make(map[int]string)
-		collectFieldNotes(doc.Content[0], resource, schema, schema, nil, "", notes)
+		if req.CommentDensity != "compact" {
+			collectExportNotes(doc.Content[0], resource.id, nil, notes, make(map[string]bool))
+		}
 		workloads.WriteString("---\n")
 		for _, note := range secretGuidance(resource.id) {
 			fmt.Fprintln(&workloads, "# "+note)
 		}
 		for offset, line := range resource.lines {
-			if note := notes[resource.start+offset]; note != "" {
+			if req.CommentDensity == "compact" && (strings.HasPrefix(strings.TrimSpace(line), "# Source: ") || strings.HasPrefix(strings.TrimSpace(line), "# v0.95.2")) {
+				continue
+			}
+			if note := notes[offset+1]; note != "" {
 				indent := line[:len(line)-len(strings.TrimLeft(line, " "))]
 				fmt.Fprintf(&workloads, "%s# Why: %s\n", indent, strings.Join(strings.Fields(note), " "))
 			}
@@ -90,6 +89,46 @@ func explainExport(manifest, schemaDir string, req renderRequest) (explainedExpo
 		result.YAML = header.String() + explanation + crds.String() + workloads.String()
 	}
 	return result, nil
+}
+
+// Export only authored notes. Hover still uses the schema for fields omitted here.
+func collectExportNotes(node *yaml.Node, id resourceID, path []string, notes map[int]string, seen map[string]bool) {
+	switch node.Kind {
+	case yaml.MappingNode:
+		for index := 0; index < len(node.Content); index += 2 {
+			key, value := node.Content[index], node.Content[index+1]
+			fieldPath := append(path, key.Value)
+			switch key.Value {
+			case "kind", "data", "stringData", "annotations":
+				continue
+			}
+			note := fieldWhy(id, fieldPath, value, "")
+			if len(fieldPath) == 1 && (key.Value == "metadata" || key.Value == "spec") {
+				note = ""
+			}
+			if key.Value == "args" && len(path) != 0 && (path[len(path)-1] == "containers" || path[len(path)-1] == "initContainers") {
+				for i := 0; i < len(node.Content); i += 2 {
+					if node.Content[i].Value == "name" {
+						note = "Configure how " + node.Content[i+1].Value + " starts and runs with these flags."
+						break
+					}
+				}
+			}
+			if note != "" && !seen[note] {
+				notes[key.Line] = note
+				seen[note] = true
+			}
+			switch key.Value {
+			case "labels", "args", "rules", "matchLabels":
+				continue
+			}
+			collectExportNotes(value, id, fieldPath, notes, seen)
+		}
+	case yaml.SequenceNode:
+		for _, item := range node.Content {
+			collectExportNotes(item, id, path, notes, seen)
+		}
+	}
 }
 
 func secretGuidance(id resourceID) []string {

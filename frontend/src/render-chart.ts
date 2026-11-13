@@ -1,15 +1,15 @@
-export async function renderExplainedChart(tool: string, kubernetesVersion: string, values: string, signal: AbortSignal) {
+export async function renderExplainedChart(tool: string, kubernetesVersion: string, values: string, commentDensity: 'learning' | 'compact', signal: AbortSignal) {
   const response = await fetch('/api/export', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tool, kubernetesVersion, values }),
+    body: JSON.stringify({ tool, kubernetesVersion, values, commentDensity }),
     signal,
   });
   if (!response.ok) {
     throw new Error(response.status === 422 ? (await response.text()).trim() : 'The local chart renderer is unavailable.');
   }
   const { yaml } = await response.json();
-  if (typeof yaml !== 'string' || !yaml.startsWith('# kubectl apply ') || !yaml.includes('\n# Why: ')) {
+  if (typeof yaml !== 'string' || !yaml.startsWith('# kubectl apply ') || (commentDensity === 'learning' && !yaml.includes('\n# Why: '))) {
     throw new Error('The local renderer did not return an explained YAML export.');
   }
   return yaml;

@@ -123,7 +123,19 @@ func fieldWhy(id resourceID, path []string, value *yaml.Node, description string
 			return "Declare the desired configuration so Kubernetes can reconcile the actual " + id.Kind + " against it."
 		}
 	}
+	if (id.Kind == "ClusterRole" || id.Kind == "Role") && path[0] == "rules" {
+		switch key {
+		case "rules":
+			return "Grant the component the listed operations on the Kubernetes object types and API groups it needs."
+		case "resources":
+			return "Choose which Kubernetes object types this rule grants access to."
+		case "verbs":
+			return "Limit the operations allowed on those objects, such as reading or watching them."
+		}
+	}
 	switch key {
+	case "args":
+		return "Pass these flags to configure how the container starts and runs."
 	case "labels":
 		return "Keep labels consistent so selectors can match the intended Pods and tooling can identify the release."
 	case "namespace":
@@ -143,6 +155,9 @@ func fieldWhy(id resourceID, path []string, value *yaml.Node, description string
 	case "securityContext":
 		return "Constrain the identity and privileges of this workload so it runs with the access it needs."
 	case "resources":
+		if len(path) < 2 || (path[len(path)-2] != "containers" && path[len(path)-2] != "initContainers") {
+			return description
+		}
 		return "Give the scheduler capacity requirements and set bounds on runtime resource use where limits are configured."
 	case "requests":
 		return "Reserve capacity when Kubernetes schedules this workload."

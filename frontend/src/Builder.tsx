@@ -25,18 +25,19 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
   });
 
   const [format, setFormat] = useState<'values' | 'manifests'>('values');
+  const [commentDensity, setCommentDensity] = useState<'learning' | 'compact'>('learning');
   const [compare, setCompare] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [jump, setJump] = useState<{ name: string }>();
   const [manifest, setManifest] = useState({ key: '', current: '', previous: '', error: '' });
   const currentPreview = previewValues(catalog, current);
-  const renderKey = JSON.stringify([tool, kubernetesVersion, currentPreview.text]);
+  const renderKey = JSON.stringify([tool, kubernetesVersion, currentPreview.text, commentDensity]);
 
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const text = await renderExplainedChart(tool, kubernetesVersion, currentPreview.text, controller.signal);
+        const text = await renderExplainedChart(tool, kubernetesVersion, currentPreview.text, commentDensity, controller.signal);
         if (!controller.signal.aborted) {
           setManifest(({ current }) => ({
             key: renderKey, current: text, previous: current || text,
@@ -58,7 +59,7 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [tool, kubernetesVersion, currentPreview.text, renderKey]);
+  }, [tool, kubernetesVersion, currentPreview.text, commentDensity, renderKey]);
 
   function update(path: string, value: Value) {
     setValues(({ current }) => ({ current: { ...current, [path]: value }, previous: current }));
@@ -174,6 +175,17 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
           </select>
           <small>Format to copy, download, and deploy.</small>
         </label>
+        {format === 'manifests' && (
+          <label>
+            Comment density
+            <select value={commentDensity} onChange={event =>
+              setCommentDensity(event.target.value === 'compact' ? 'compact' : 'learning')
+            }>
+              <option value="learning">Learning</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+        )}
         <ExportActions key={format} text={format === 'values' ? valuesExport : currentManifest}
           filename={format === 'values' ? `${tool}-helm-bundle.zip` : `${tool}-manifests.yaml`}
           loadBundle={format === 'values' ? loadBundle : undefined} />

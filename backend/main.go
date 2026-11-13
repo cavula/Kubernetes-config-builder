@@ -85,6 +85,7 @@ type renderRequest struct {
 	Tool              string  `json:"tool"`
 	KubernetesVersion string  `json:"kubernetesVersion"`
 	Values            string  `json:"values"`
+	CommentDensity    string  `json:"commentDensity,omitempty"`
 	AlternateValues   *string `json:"alternateValues,omitempty"`
 }
 
@@ -291,7 +292,11 @@ func main() {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-		result, err := explainExport(manifest, *schemaDir, req)
+		if req.CommentDensity != "" && req.CommentDensity != "learning" && req.CommentDensity != "compact" {
+			http.Error(w, "Unknown YAML comment density.", http.StatusBadRequest)
+			return
+		}
+		result, err := explainExport(manifest, req)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusUnprocessableEntity)
 			return

@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"go.yaml.in/yaml/v3"
 )
 
 func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
@@ -17,7 +15,7 @@ func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			export, err := explainExport(raw, "../.runtime/schemas", req)
+			export, err := explainExport(raw, req)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -33,25 +31,23 @@ func TestExplainedExportsPreserveResourcesAndCoverFields(t *testing.T) {
 				t.Fatal("the single-file download must preserve all resources")
 			}
 			for _, resource := range resourcesForTest(t, export.Manifests) {
-				var doc yaml.Node
-				if err := yaml.Unmarshal([]byte(strings.Join(resource.lines, "\n")), &doc); err != nil {
-					t.Fatal(err)
-				}
-				var check func(*yaml.Node)
-				check = func(node *yaml.Node) {
-					if node.Kind == yaml.MappingNode && node.Style != yaml.FlowStyle {
-						for i := 0; i < len(node.Content); i += 2 {
-							field := node.Content[i]
-							if field.Line < 2 || !strings.HasPrefix(strings.TrimSpace(resource.lines[field.Line-2]), "# Why: ") {
-								t.Errorf("%s %s lacks explanation for %s", resource.id.Kind, resource.id.Name, field.Value)
-							}
-						}
+				seen := make(map[string]bool)
+				for _, line := range resource.lines {
+					comment := strings.TrimSpace(line)
+					if !strings.HasPrefix(comment, "# Why: ") {
+						continue
 					}
-					for _, child := range node.Content {
-						check(child)
+					if seen[comment] || len(comment) > 160 {
+						t.Errorf("%s %s has a repeated or overlong comment: %s", resource.id.Kind, resource.id.Name, comment)
+					}
+					seen[comment] = true
+				}
+				if resource.id.Kind == "ClusterRole" {
+					document := strings.Join(resource.lines, "\n")
+					if strings.Contains(document, "scheduler capacity") || !strings.Contains(document, "operations on the Kubernetes object types") {
+						t.Errorf("ClusterRole %s has an incorrect rules explanation", resource.id.Name)
 					}
 				}
-				check(&doc)
 				if resource.id.Kind == "Secret" && (resource.id.Name == "argocd-secret" || resource.id.Name == "argocd-notifications-secret") {
 					document := strings.Join(resource.lines, "\n")
 					for _, guidance := range []string{"# REQUIRED IF", "Never commit real secrets to Git", "https://argo-cd.readthedocs.io/"} {
@@ -98,7 +94,7 @@ func TestPrometheusExportGroupsServerBeforeEnabledAddons(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		export, err := explainExport(raw, "../.runtime/schemas", req)
+		export, err := explainExport(raw, req)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -124,5 +120,33 @@ func TestPrometheusExportGroupsServerBeforeEnabledAddons(t *testing.T) {
 				t.Errorf("main resource %s follows an add-on", resource.id.Name)
 			}
 		}
+	}
+}
+
+func TestMinimalPrometheusCommentDensity(t *testing.T) {
+	req := renderRequest{Tool: "prometheus", KubernetesVersion: "1.37", Values: "alertmanager: {enabled: false}\nkube-state-metrics: {enabled: false}\nprometheus-node-exporter: {enabled: false}\nprometheus-pushgateway: {enabled: false}\n"}
+	raw, err := render(context.Background(), pinnedChartFixtures(t), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	learning, err := explainExport(raw, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count := strings.Count(learning.YAML, "\n"); count > 650 {
+		t.Errorf("Minimal Learning YAML has %d lines, want at most 650", count)
+	}
+	req.CommentDensity = "compact"
+	compact, err := explainExport(raw, req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(compact.YAML, "# Why:") || strings.Contains(compact.YAML, "# Source:") ||
+		!strings.Contains(compact.YAML, "# Component: Prometheus server") ||
+		!strings.Contains(compact.YAML, "# Purpose:") || !strings.Contains(compact.YAML, "# After install:") {
+		t.Fatal("Compact should preserve deployment instructions and component and purpose headers")
+	}
+	if !reflect.DeepEqual(resourceJSON(t, learning.YAML), resourceJSON(t, compact.YAML)) {
+		t.Fatal("comment density changed resource values")
 	}
 }

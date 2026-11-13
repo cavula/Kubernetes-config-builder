@@ -197,10 +197,19 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
       assert.ok(yaml.text.startsWith('# ' + (await installCommands.textContent())));
       assert.match(yaml.text, /# After install:/);
       assert.match(yaml.text, /# kubectl .*port-forward/);
-      for (const field of ['apiVersion', 'labels', 'readinessProbe', 'livenessProbe', 'securityContext', 'resources', 'rules', 'apiGroups']) {
+      for (const field of ['apiVersion', 'labels', 'readinessProbe', 'livenessProbe', 'securityContext', 'resources', 'rules']) {
         assert.match(yaml.text, new RegExp('^ *# Why: .+\\n *(?:- )?' + field + ':', 'm'), field);
       }
+      assert.doesNotMatch(yaml.text.split('\n---\n')[0], /Helm release/);
       if (tool === 'prometheus') {
+        const density = page.getByRole('combobox', { name: 'Comment density' });
+        assert.equal(await density.inputValue(), 'learning');
+        await density.selectOption('compact');
+        const compact = await download('Download');
+        assert.equal(compact.text, await copy('Copy'));
+        assert.match(compact.text, /# Purpose:/);
+        assert.doesNotMatch(compact.text, /# Why:|# Source:/);
+        await density.selectOption('learning');
         for (const field of ['hostNetwork', 'hostPID', 'storage']) {
           assert.match(yaml.text, new RegExp('^ *# Why: .+\\n *(?:- )?' + field + ':', 'm'), field);
         }

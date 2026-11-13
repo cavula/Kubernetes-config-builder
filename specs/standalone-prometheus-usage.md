@@ -48,7 +48,7 @@ Preserve existing rule groups when merging the fragment because Helm replaces li
 
 - [x] Each template has form fields with examples and short YAML. Learning mode explains every YAML line in plain words.
 - [x] Validate the Service against Kubernetes' official schema and validate the two Helm fragments against the pinned chart and rendered Prometheus configuration or rule file.
-- [ ] Each K3s test uses the generated output through its intended entry point and checks the target or alert behavior.
+- [x] Each K3s test uses the generated output through its intended entry point and checks the target or alert behavior.
 
 ## Verification and sources
 
@@ -64,3 +64,5 @@ The pinned archive's `values.yaml` and `templates/cm.yaml` were inspected. A loc
 Both Helm values downloads begin with a comment identifying the file as an addition to an existing release and the exact pinned `helm upgrade` command. Keep these instructions in Compact as well. For rules, merge existing groups into the downloaded file before upgrading.
 
 [Helm upgrade reference](https://helm.sh/docs/helm/helm_upgrade/)
+
+The dedicated K3s 1.37.2 test applied the generated Service and upgraded the pinned release with the generated Helm fragments. Both scrape targets were healthy, and the alert fired after the test made the custom target's scrape fail. The test queries the Prometheus API from the dedicated k3d node.

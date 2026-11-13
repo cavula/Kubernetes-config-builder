@@ -39,15 +39,7 @@ PY
 version=$(helm show chart "$chart" | awk '$1 == "appVersion:" { print $2 }')
 
 scratch=$(mktemp -d)
-port_forward_pid=
-cleanup() {
-  if [[ -n "$port_forward_pid" ]]; then
-    kill "$port_forward_pid" 2>/dev/null || true
-    wait "$port_forward_pid" 2>/dev/null || true
-  fi
-  rm -rf "$scratch"
-}
-trap cleanup EXIT
+trap 'rm -rf "$scratch"' EXIT
 
 node --input-type=module - "$scratch" <<'JS'
 import { writeFileSync } from 'node:fs';
@@ -103,30 +95,27 @@ helm install prometheus "$chart" --kubeconfig "$config" --namespace monitoring -
 
 check_prometheus() {
   "${cluster[@]}" -n monitoring rollout status deployment/prometheus-server --timeout=300s
-  "${cluster[@]}" -n monitoring port-forward --address 127.0.0.1 service/prometheus-server :80 >"$scratch/forward.log" 2>&1 &
-  port_forward_pid=$!
-  python3 - "$scratch/forward.log" "$1" <<'PY'
+  local service_ip
+  service_ip=$("${cluster[@]}" -n monitoring get service prometheus-server -o jsonpath='{.spec.clusterIP}')
+  python3 - "$service_ip" "$1" <<'PYCODE'
 import json
-from pathlib import Path
-import re
+import subprocess
 import sys
 import time
-from urllib.error import URLError
-from urllib.request import urlopen
 
-forward_log, phase = sys.argv[1:]
+service_ip, phase = sys.argv[1:]
 deadline = time.monotonic() + 300
-last_error = "port-forward did not start"
+last_error = "Prometheus API did not respond"
 while time.monotonic() < deadline:
-    port = re.search(r"Forwarding from 127\.0\.0\.1:(\d+)", Path(forward_log).read_text())
-    if port is None:
-        time.sleep(1)
-        continue
     try:
-        endpoint = "targets" if phase != "alert" else "alerts"
-        with urlopen(f"http://127.0.0.1:{port[1]}/api/v1/{endpoint}", timeout=10) as response:
-            result = json.load(response)["data"]
-    except (KeyError, OSError, URLError, ValueError) as error:
+        endpoint = "alerts" if phase == "alert" else "targets"
+        response = subprocess.check_output(
+            ["docker", "exec", "k3d-kcb-test-137-prom-usage-server-0", "wget", "-qO", "-",
+             f"http://{service_ip}/api/v1/{endpoint}"],
+            timeout=20,
+        )
+        result = json.loads(response)["data"]
+    except (KeyError, OSError, ValueError, subprocess.SubprocessError) as error:
         last_error = str(error)
         time.sleep(2)
         continue
@@ -154,10 +143,7 @@ while time.monotonic() < deadline:
     time.sleep(2)
 else:
     sys.exit(f"Prometheus {phase} check timed out. Last result: {last_error}")
-PY
-  kill "$port_forward_pid" 2>/dev/null || true
-  wait "$port_forward_pid" 2>/dev/null || true
-  port_forward_pid=
+PYCODE
 }
 
 check_prometheus annotated

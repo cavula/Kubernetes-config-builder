@@ -22,4 +22,4 @@ See the [standalone Prometheus proposal](standalone-prometheus-usage.md) for the
 
 - [x] Chromium verifies the default usage view, all three CRD checks, and the Learning and Compact downloads.
 - [x] Dedicated K3s 1.37.2 accepted all three generated resources. The ApplicationSet controller generated both expected Applications.
-- [ ] Verify that the Guestbook Application syncs through the generated AppProject and that its Deployment becomes ready. The local controller reported Kubernetes discovery and API transport timeouts during this run.
+- [x] Guestbook reached Synced and Healthy through the generated AppProject and its Deployment rolled out. The fresh K3s retry disabled metrics-server to avoid discovery interruptions and imported the upstream AMD64-only Guestbook image on the ARM64 host using Docker Desktop emulation.

@@ -52,6 +52,30 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, permissions: ['clipboard-read', 'clipboard-write'] });
     page.setDefaultTimeout(8000);
     await page.goto(process.env.KCB_APP_URL ?? 'http://127.0.0.1:5173');
+    assert.equal(await page.getByRole('button', { name: 'Use the tool' }).getAttribute('aria-pressed'), 'true');
+    const usageTemplate = page.getByRole('combobox', { name: 'Usage template' });
+    for (const id of ['application', 'app-project', 'application-set']) {
+      await usageTemplate.selectOption(id);
+      await page.getByText('CRD schema validation passed.').waitFor();
+      const pendingDownload = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download', exact: true }).click();
+      const download = await pendingDownload;
+      const learning = readFileSync(await download.path(), 'utf8');
+      assert.match(learning, /apiVersion: argoproj.io\/v1alpha1/);
+      const lines = learning.trimEnd().split('\n');
+      for (const [index, line] of lines.entries()) {
+        if (line.trim() && !line.trimStart().startsWith('#')) {
+          assert.match(lines[index - 1] ?? '', /^\s*# .+/);
+        }
+      }
+      await page.getByRole('combobox', { name: 'Comment density' }).selectOption('compact');
+      const compactDownload = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download', exact: true }).click();
+      const compact = await compactDownload;
+      assert.doesNotMatch(readFileSync(await compact.path(), 'utf8'), /^\s*#/m);
+    }
+    await page.getByRole('button', { name: 'Install the tool' }).click();
+    await page.getByRole('combobox', { name: /^Tool/ }).selectOption('prometheus');
     await page.locator('.view-line').first().waitFor();
     await page.evaluate(async () => {
       const url = performance.getEntriesByType('resource')

@@ -390,6 +390,19 @@ func main() {
 		}
 	})
 
+	mux.HandleFunc("POST /api/usage/validate", func(w http.ResponseWriter, r *http.Request) {
+		req, ok := decodeRenderRequest(w, r)
+		if !ok {
+			return
+		}
+		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+		defer cancel()
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(validateUsage(ctx, *chartDir, req)); err != nil {
+			log.Print(err)
+		}
+	})
+
 	if *webDir != "" {
 		mux.Handle("GET /", http.FileServer(http.Dir(*webDir)))
 	}

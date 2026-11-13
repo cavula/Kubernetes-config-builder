@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react';
 type Diagnostic = { check: string; severity: string; message: string };
 type Result = { status: string; diagnostics: Diagnostic[] };
 
-export function ValidationStatus({ tool, kubernetesVersion, values }: {
+export function ValidationStatus({ tool, kubernetesVersion, values, usage = false }: {
   tool: string;
   kubernetesVersion: string;
   values: string;
+  usage?: boolean;
 }) {
   const body = JSON.stringify({ tool, kubernetesVersion, values });
   const [response, setResponse] = useState<{ body: string; result: Result }>();
@@ -15,7 +16,7 @@ export function ValidationStatus({ tool, kubernetesVersion, values }: {
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
-        const request = await fetch('/api/validate', {
+        const request = await fetch(usage ? '/api/usage/validate' : '/api/validate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body,
@@ -37,14 +38,14 @@ export function ValidationStatus({ tool, kubernetesVersion, values }: {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [body]);
+  }, [body, usage]);
 
   const result = response?.body === body ? response.result : undefined;
   return (
     <div className="validation-status" aria-live="polite">
       <h2>Validation</h2>
       {!result && <p>Checking configuration…</p>}
-      {result?.status === 'passed' && <p>Helm lint and schema validation passed.</p>}
+      {result?.status === 'passed' && <p>{usage ? 'CRD schema validation passed.' : 'Helm lint and schema validation passed.'}</p>}
       {result?.diagnostics.length ? (
         <ul>
           {result.diagnostics.map(({ check, severity, message }, index) => (

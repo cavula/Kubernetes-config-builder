@@ -222,3 +222,29 @@ main:has(.builder-comparing) {
   font: inherit;
   cursor: pointer;
 }
+
+.workflow-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.workflow-options button {
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #8295af;
+  border-radius: 0.4rem;
+  background: white;
+  color: #153763;
+  font: inherit;
+  cursor: pointer;
+}
+
+.workflow-options button[aria-pressed="true"] {
+  background: #153763;
+  color: white;
+}
+
+.usage-description {
+  grid-column: 1 / -1;
+  margin: 0;
+}

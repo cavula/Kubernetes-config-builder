@@ -1,0 +1,239 @@
+{
+  "application": {
+    "label": "Application",
+    "description": "Deploy and sync one app from Git.",
+    "fields": [
+      {
+        "id": "name",
+        "label": "Application name",
+        "description": "Name of this resource in the Argo CD namespace.",
+        "type": "text",
+        "default": "my-app",
+        "example": "my-app"
+      },
+      {
+        "id": "namespace",
+        "label": "Argo CD namespace",
+        "description": "Namespace where Argo CD watches for this resource.",
+        "type": "text",
+        "default": "argocd",
+        "example": "argocd"
+      },
+      {
+        "id": "project",
+        "label": "Project",
+        "description": "AppProject that governs the allowed repositories and destinations.",
+        "type": "text",
+        "default": "default",
+        "example": "guestbook-project"
+      },
+      {
+        "id": "repoURL",
+        "label": "Git repository URL",
+        "description": "Git repository that contains the Kubernetes manifests.",
+        "type": "text",
+        "default": "https://github.com/argoproj/argocd-example-apps.git",
+        "example": "https://github.com/argoproj/argocd-example-apps.git"
+      },
+      {
+        "id": "targetRevision",
+        "label": "Git revision",
+        "description": "Branch, tag, or commit that Argo CD reads.",
+        "type": "text",
+        "default": "HEAD",
+        "example": "main"
+      },
+      {
+        "id": "path",
+        "label": "Path in repository",
+        "description": "Directory containing the manifests to deploy.",
+        "type": "text",
+        "default": "guestbook",
+        "example": "guestbook"
+      },
+      {
+        "id": "destinationServer",
+        "label": "Destination server",
+        "description": "API server URL of a cluster registered with Argo CD.",
+        "type": "text",
+        "default": "https://kubernetes.default.svc",
+        "example": "https://kubernetes.default.svc"
+      },
+      {
+        "id": "destinationNamespace",
+        "label": "Destination namespace",
+        "description": "Namespace for namespaced resources that specify no namespace.",
+        "type": "text",
+        "default": "guestbook",
+        "example": "guestbook"
+      },
+      {
+        "id": "createNamespace",
+        "label": "Create destination namespace",
+        "description": "Create the destination namespace during sync if it is missing.",
+        "type": "boolean",
+        "default": true
+      },
+      {
+        "id": "automated",
+        "label": "Automated sync",
+        "description": "Sync changes from Git automatically when the app is out of sync.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "id": "prune",
+        "label": "Prune removed resources",
+        "description": "With automated sync, delete resources that were removed from Git.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "id": "selfHeal",
+        "label": "Self-heal",
+        "description": "With automated sync, restore the Git state when live resources drift.",
+        "type": "boolean",
+        "default": false
+      },
+      {
+        "id": "cascade",
+        "label": "Delete managed resources with the Application",
+        "description": "Add the Argo CD finalizer so deleting the Application also deletes its managed resources.",
+        "type": "boolean",
+        "default": false
+      }
+    ]
+  },
+  "app-project": {
+    "label": "AppProject",
+    "description": "Limit where Applications can deploy and which Git repository they can use.",
+    "fields": [
+      {
+        "id": "name",
+        "label": "Project name",
+        "description": "Name of this resource in the Argo CD namespace.",
+        "type": "text",
+        "default": "guestbook-project",
+        "example": "guestbook-project"
+      },
+      {
+        "id": "namespace",
+        "label": "Argo CD namespace",
+        "description": "Namespace where Argo CD watches for this resource.",
+        "type": "text",
+        "default": "argocd",
+        "example": "argocd"
+      },
+      {
+        "id": "repoURL",
+        "label": "Allowed repository URL",
+        "description": "Repository that Applications in this project may use.",
+        "type": "text",
+        "default": "https://github.com/argoproj/argocd-example-apps.git",
+        "example": "https://github.com/argoproj/argocd-example-apps.git"
+      },
+      {
+        "id": "destinationServer",
+        "label": "Allowed destination server",
+        "description": "API server URL that Applications in this project may deploy to.",
+        "type": "text",
+        "default": "https://kubernetes.default.svc",
+        "example": "https://kubernetes.default.svc"
+      },
+      {
+        "id": "destinationNamespace",
+        "label": "Allowed destination namespace",
+        "description": "Namespace that Applications in this project may deploy to.",
+        "type": "text",
+        "default": "guestbook",
+        "example": "guestbook"
+      }
+    ]
+  },
+  "application-set": {
+    "label": "ApplicationSet",
+    "description": "Generate one Application per environment. Requires a running ApplicationSet controller.",
+    "fields": [
+      {
+        "id": "name",
+        "label": "ApplicationSet name",
+        "description": "Name of this resource in the Argo CD namespace.",
+        "type": "text",
+        "default": "guestbook-environments",
+        "example": "guestbook-environments"
+      },
+      {
+        "id": "namespace",
+        "label": "Argo CD namespace",
+        "description": "Namespace where Argo CD watches for this resource.",
+        "type": "text",
+        "default": "argocd",
+        "example": "argocd"
+      },
+      {
+        "id": "project",
+        "label": "Project",
+        "description": "AppProject that governs the allowed repositories and destinations.",
+        "type": "text",
+        "default": "default",
+        "example": "guestbook-project"
+      },
+      {
+        "id": "firstEnvironment",
+        "label": "First environment",
+        "description": "Name suffix for the first generated Application.",
+        "type": "text",
+        "default": "dev",
+        "example": "dev"
+      },
+      {
+        "id": "secondEnvironment",
+        "label": "Second environment",
+        "description": "Name suffix for the second generated Application.",
+        "type": "text",
+        "default": "staging",
+        "example": "staging"
+      },
+      {
+        "id": "repoURL",
+        "label": "Git repository URL",
+        "description": "Git repository that contains the Kubernetes manifests.",
+        "type": "text",
+        "default": "https://github.com/argoproj/argocd-example-apps.git",
+        "example": "https://github.com/argoproj/argocd-example-apps.git"
+      },
+      {
+        "id": "targetRevision",
+        "label": "Git revision",
+        "description": "Branch, tag, or commit that Argo CD reads.",
+        "type": "text",
+        "default": "HEAD",
+        "example": "main"
+      },
+      {
+        "id": "path",
+        "label": "Path in repository",
+        "description": "Directory containing the manifests to deploy.",
+        "type": "text",
+        "default": "guestbook",
+        "example": "guestbook"
+      },
+      {
+        "id": "destinationServer",
+        "label": "Destination server",
+        "description": "API server URL of a cluster registered with Argo CD.",
+        "type": "text",
+        "default": "https://kubernetes.default.svc",
+        "example": "https://kubernetes.default.svc"
+      },
+      {
+        "id": "destinationNamespace",
+        "label": "Destination namespace pattern",
+        "description": "Use {{ .environment }} to substitute each environment name.",
+        "type": "text",
+        "default": "guestbook-{{ .environment }}",
+        "example": "guestbook-{{ .environment }}"
+      }
+    ]
+  }
+}

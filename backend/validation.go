@@ -105,17 +105,24 @@ func lintChart(ctx context.Context, chartDir string, req renderRequest) *diagnos
 }
 
 func validateSchemas(ctx context.Context, schemaDir, version, manifest string) []diagnostic {
+	if info, err := os.Stat(schemaDir); err != nil || !info.IsDir() {
+		return []diagnostic{{"kubeconform", "incomplete", "Local schema directory is unavailable: " + schemaDir}}
+	}
+	return validateSchemaLocations(ctx, version, manifest, schemaDir,
+		filepath.Join(schemaDir, "custom", "{{.Group}}", "{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"))
+}
+
+func validateSchemaLocations(ctx context.Context, version, manifest string, locations ...string) []diagnostic {
 	const check = "kubeconform"
 	binary, err := exec.LookPath("kubeconform")
 	if err != nil {
 		return []diagnostic{{check, "incomplete", "Install kubeconform and make it available on the backend PATH."}}
 	}
-	if info, err := os.Stat(schemaDir); err != nil || !info.IsDir() {
-		return []diagnostic{{check, "incomplete", "Local schema directory is unavailable: " + schemaDir}}
+	args := []string{"-strict", "-summary", "-output", "json", "-kubernetes-version", version + ".0"}
+	for _, location := range locations {
+		args = append(args, "-schema-location", location)
 	}
-	cmd := exec.CommandContext(ctx, binary, "-strict", "-summary", "-output", "json",
-		"-kubernetes-version", version+".0", "-schema-location", schemaDir,
-		"-schema-location", filepath.Join(schemaDir, "custom", "{{.Group}}", "{{.ResourceKind}}_{{.ResourceAPIVersion}}.json"))
+	cmd := exec.CommandContext(ctx, binary, args...)
 	cmd.Stdin = strings.NewReader(manifest)
 	output, err := cmd.Output()
 

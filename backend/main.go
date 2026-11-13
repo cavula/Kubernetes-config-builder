@@ -85,6 +85,7 @@ type renderRequest struct {
 	Tool              string  `json:"tool"`
 	KubernetesVersion string  `json:"kubernetesVersion"`
 	Values            string  `json:"values"`
+	UsageTemplate     string  `json:"usageTemplate,omitempty"`
 	CommentDensity    string  `json:"commentDensity,omitempty"`
 	AlternateValues   *string `json:"alternateValues,omitempty"`
 }
@@ -398,7 +399,13 @@ func main() {
 		ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 		defer cancel()
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(validateUsage(ctx, *chartDir, req)); err != nil {
+		var result validationResult
+		if req.Tool == "prometheus" {
+			result = validatePrometheusUsage(ctx, *chartDir, *schemaDir, req)
+		} else {
+			result = validateUsage(ctx, *chartDir, req)
+		}
+		if err := json.NewEncoder(w).Encode(result); err != nil {
 			log.Print(err)
 		}
 	})

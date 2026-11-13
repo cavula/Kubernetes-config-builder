@@ -33,6 +33,10 @@ jobs:
           tar -xzf "$archive" linux-amd64/helm
           GOBIN="$RUNNER_TEMP/linux-amd64" go install github.com/yannh/kubeconform/cmd/kubeconform@v0.7.0
           echo "$RUNNER_TEMP/linux-amd64" >> "$GITHUB_PATH"
+      - name: Build the pinned Prometheus checker
+        run: |
+          ./backend/build-promtool.sh "$RUNNER_TEMP/prometheus-tools"
+          echo "$RUNNER_TEMP/prometheus-tools" >> "$GITHUB_PATH"
       - name: Download and verify pinned charts
         run: ./backend/download-charts.sh
       - name: Test and build frontend

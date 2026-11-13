@@ -64,3 +64,20 @@ usage["values"] = application.replace("project: default", "project: []")
 result = json.loads(request("/api/usage/validate", usage))
 assert result["status"] == "error", result
 print("Packaged Argo CD usage validation accepts valid resources and rejects invalid fields")
+
+scrape = """scrapeConfigs:
+  smoke-test:
+    enabled: true
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets: [metrics.default.svc:8080]
+"""
+usage = {"tool": "prometheus", "kubernetesVersion": "1.37", "usageTemplate": "scrape-job", "values": scrape}
+result = json.loads(request("/api/usage/validate", usage))
+assert result["status"] == "passed", result
+usage["values"] = scrape.replace("30s", "bad interval")
+result = json.loads(request("/api/usage/validate", usage))
+assert result["status"] == "error" and result["diagnostics"][0]["check"] == "promtool", result
+print("Packaged promtool accepts valid Prometheus usage values and rejects an invalid interval")

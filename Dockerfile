@@ -18,6 +18,11 @@ RUN go build -trimpath -o /out/kcb . \
     && go build -trimpath -ldflags '-X helm.sh/helm/v4/internal/version.version=v4.3.1' -o /out/helm helm.sh/helm/v4/cmd/helm \
     && go build -trimpath -ldflags '-X main.version=v0.7.0' -o /out/kubeconform github.com/yannh/kubeconform/cmd/kubeconform
 
+FROM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS prometheus-tools
+WORKDIR /src
+COPY backend/build-promtool.sh backend/go.mod backend/go.sum ./
+RUN ./build-promtool.sh /out
+
 FROM golang:1.27.4-bookworm@sha256:4fa7c968ba93f1635670522dbb01a2c78150443e1385746924566079f36570ea AS assets
 WORKDIR /src
 RUN apt-get update && apt-get install -y --no-install-recommends python3 \
@@ -29,6 +34,7 @@ RUN ./backend/download-charts.sh && python3 backend/download-schemas.py \
 
 FROM scratch
 COPY --from=backend /out/ /usr/local/bin/
+COPY --from=prometheus-tools /out/promtool /usr/local/bin/promtool
 COPY --from=assets /src/.runtime/ /app/assets/
 COPY --from=frontend /src/frontend/dist/ /app/web/
 USER 65532:65532

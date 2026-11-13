@@ -1,5 +1,9 @@
 {
   "fields": {
+    "applicationSet": "Configure the controller that generates Applications from templates.",
+    "applicationSet.replicas": "Set how many controller pods generate Applications. Zero stops the controller.",
+    "notifications": "Configure notifications about application events.",
+    "notifications.enabled": "Enable the notifications controller when application events should be sent to configured recipients.",
     "server.service.type": "Use ClusterIP for access inside the cluster and port forwarding. Choose NodePort when the API and UI must be reachable on a node port.",
     "server.replicas": "Choose the number of API and UI Pods to match availability and request capacity needs.",
     "repoServer.replicas": "Choose how many repository servers share manifest-generation work.",

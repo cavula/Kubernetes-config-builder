@@ -10,8 +10,8 @@ function App() {
     selectConfiguration(platform.id, kubernetesVersions[0], tools[0].id),
   );
 
-  const [preset, setPreset] = useState<Preset>('minimal');
-  const activePreset = configuration.tool.id === 'prometheus' ? preset : 'full';
+  const [presetsByTool, setPresetsByTool] = useState<Record<string, Preset>>({});
+  const activePreset = presetsByTool[configuration.tool.id] ?? 'minimal';
 
   return (
     <main>
@@ -47,13 +47,15 @@ function App() {
         </label>
         <label>
           Preset
-          <select value={activePreset} onChange={event => setPreset(event.target.value as Preset)}>
-            {Object.entries(presets).filter(([id]) => configuration.tool.id === 'prometheus' || id === 'full')
+          <select value={activePreset} onChange={event => setPresetsByTool({ ...presetsByTool, [configuration.tool.id]: event.target.value as Preset })}>
+            {Object.entries(presets)
               .map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
           <small>{configuration.tool.id === 'prometheus'
             ? 'Start with the server alone or add monitoring components.'
-            : 'Start with the official Argo CD chart settings.'}</small>
+            : activePreset === 'minimal' ? 'Core components only. Dex, notifications, and ApplicationSet are off.'
+            : activePreset === 'recommended' ? 'Includes ApplicationSet. Dex and notifications are off.'
+            : 'Includes Dex, notifications, and ApplicationSet.'}</small>
         </label>
         {configuration.tool.id === 'prometheus' && activePreset === 'recommended' && (
           <small className="preset-description">Includes Alertmanager, kube-state-metrics, and node exporter. Enable Pushgateway for short-lived service-level batch jobs.</small>

@@ -13,7 +13,7 @@ Live previews, a component summary, validation results, one copy or download for
 ## Acceptance criteria
 
 - [x] Show Choose a preset, Customize (optional), and Deploy. Place the preset beside the tool and Kubernetes version in step 1.
-- [x] Offer Minimal (Prometheus server only, best for learning), Recommended, and Full chart defaults using the pinned official Prometheus chart values. Argo CD uses its chart defaults.
+- [x] Offer Minimal (Prometheus server only, best for learning), Recommended, and Full chart defaults using the pinned official Prometheus chart values.
 - [x] Give Alertmanager, kube-state-metrics, node exporter, and Pushgateway independent switches in labelled sections.
 - [x] Show the namespace and main Prometheus resources before any add-ons in the YAML export. Each enabled add-on has a labelled section.
 - [x] Show guidance for customization controls and examples for typed inputs.
@@ -29,3 +29,12 @@ Live previews, a component summary, validation results, one copy or download for
 - [Pinned Prometheus chart](https://github.com/prometheus-community/helm-charts/tree/prometheus-29.45.1/charts/prometheus)
 - [When to use Pushgateway](https://prometheus.io/docs/practices/pushing/)
 - [kubectl apply reference](https://kubernetes.io/docs/reference/kubectl/generated/kubectl_apply/)
+
+## Argo CD presets
+
+- [x] Default Argo CD to Minimal. Disable Dex and notifications with their chart switches. Scale ApplicationSet to zero because the pinned chart always renders its Deployment.
+- [x] Recommended enables ApplicationSet for multi-application workflows and leaves Dex and notifications off. Full chart defaults uses the pinned defaults.
+- [x] CRD schemas start collapsed in the YAML preview. Verify this in Chromium.
+- [x] Measure Learning YAML lines excluding CRD documents. Enforce a Minimal line budget.
+
+On Kubernetes 1.37, Learning YAML including the header and excluding CRD documents is 3,442 lines for Minimal, 3,442 for Recommended, and 4,220 for Full. The Minimal budget is 3,600 lines. [Pinned chart values](https://github.com/argoproj/argo-helm/blob/argo-cd-10.17.1/charts/argo-cd/values.yaml)

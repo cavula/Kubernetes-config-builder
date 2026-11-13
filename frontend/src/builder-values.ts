@@ -1,3 +1,4 @@
+import argoPresets from '../../templates/argo-cd/presets.json' with { type: 'json' };
 import prometheusARM64Values from '../../backend/prometheus-arm64-values.json' with { type: 'json' };
 import prometheusOptions from '../../templates/prometheus/options.json' with { type: 'json' };
 import prometheusNotes from '../../templates/prometheus/notes.json' with { type: 'json' };
@@ -16,7 +17,7 @@ type Option = {
   comparison?: string;
 };
 
-export type Catalog = { options: Option[]; fixedValues?: Record<string, string>; notes: { fields: Record<string, string>; dependencyHints: Partial<Record<string, string>> } };
+export type Catalog = { options: Option[]; fixedValues?: Record<string, string | boolean | number>; notes: { fields: Record<string, string>; dependencyHints: Partial<Record<string, string>> } };
 export const catalogs: Record<'prometheus' | 'argo-cd', Catalog> = {
   prometheus: {
     options: prometheusOptions,
@@ -159,4 +160,15 @@ export function presetValues(catalog: Catalog, preset: Preset) {
   }
   if (preset === 'recommended') values['prometheus-pushgateway.enabled'] = false;
   return values;
+}
+
+
+export function argoPresetCatalog(catalog: Catalog, preset: Preset): Catalog {
+  const overrides: Record<string, boolean | number> = argoPresets[preset];
+  const editablePaths = new Set(catalog.options.map(option => option.path));
+  return {
+    ...catalog,
+    options: catalog.options.map(option => ({ ...option, default: overrides[option.path] ?? option.default })),
+    fixedValues: Object.fromEntries(Object.entries(overrides).filter(([path]) => !editablePaths.has(path))),
+  };
 }

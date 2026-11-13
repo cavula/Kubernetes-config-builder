@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -199,5 +201,66 @@ func TestReplicaExplanationUsesCorrectNumber(t *testing.T) {
 		if !strings.HasPrefix(note, expected) {
 			t.Errorf("replicas %s: got %q, want prefix %q", value, note, expected)
 		}
+	}
+}
+
+func TestArgoPresetLearningExports(t *testing.T) {
+	data, err := os.ReadFile("../templates/argo-cd/presets.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var presets map[string]map[string]any
+	if err := json.Unmarshal(data, &presets); err != nil {
+		t.Fatal(err)
+	}
+	for _, preset := range []string{"minimal", "recommended", "full"} {
+		t.Run(preset, func(t *testing.T) {
+			values := map[string]map[string]any{}
+			for path, value := range presets[preset] {
+				group, field, _ := strings.Cut(path, ".")
+				values[group] = map[string]any{field: value}
+			}
+			rawValues, err := json.Marshal(values)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := renderRequest{Tool: "argo-cd", KubernetesVersion: "1.37", Values: string(rawValues)}
+			raw, err := render(context.Background(), pinnedChartFixtures(t), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			export, err := explainExport(raw, req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			learning := export.Manifests
+			lines := strings.Count(learning, "\n")
+			t.Logf("Learning YAML excluding CRDs: %d lines", lines)
+			if preset == "minimal" && lines > 3600 {
+				t.Errorf("Minimal exceeds 3600 lines: %d", lines)
+			}
+			resources := resourcesForTest(t, learning)
+			for _, name := range []string{"argocd-dex-server", "argocd-notifications-controller", "argocd-applicationset-controller"} {
+				found := false
+				for _, resource := range resources {
+					if resource.id.Kind != "Deployment" || !strings.HasSuffix(resource.id.Name, name) {
+						continue
+					}
+					found = true
+					if name == "argocd-applicationset-controller" {
+						want := "1"
+						if preset == "minimal" {
+							want = "0"
+						}
+						if !strings.Contains(strings.Join(resource.lines, "\n"), "\n  replicas: "+want+"\n") {
+							t.Errorf("ApplicationSet should have %s replicas", want)
+						}
+					}
+				}
+				if found != (preset == "full" || name == "argocd-applicationset-controller") {
+					t.Errorf("unexpected %s Deployment presence: %t", name, found)
+				}
+			}
+		})
 	}
 }

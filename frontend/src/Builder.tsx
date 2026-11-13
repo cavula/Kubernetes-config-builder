@@ -2,7 +2,7 @@ import deploymentCommands from '../../backend/deployment-commands.json';
 import exportGuides from '../../backend/export-guides.json';
 import acceptedRisks from '../../security/accepted-risks.json';
 import { useEffect, useMemo, useState } from 'react';
-import { catalogForChart, presetValues, prometheusAddons, dependencyHint, describeValuesPaths, previewValues, type catalogs, type Value, type Preset } from './builder-values';
+import { argoPresetCatalog, catalogForChart, presetValues, prometheusAddons, dependencyHint, describeValuesPaths, previewValues, type catalogs, type Value, type Preset } from './builder-values';
 import { Preview } from './Preview';
 import { ChartComparison } from './ChartComparison';
 import { ExportActions } from './ExportActions';
@@ -16,11 +16,12 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
   preset: Preset;
   kubernetesVersion: string;
 }) {
-  const catalog = catalogForChart(tool, chartVersion);
+  const chartCatalog = catalogForChart(tool, chartVersion);
+  const catalog = tool === 'argo-cd' ? argoPresetCatalog(chartCatalog, preset) : chartCatalog;
   const hasAcceptedRisks = acceptedRisks.charts[tool].pinnedChart === chartVersion &&
     Object.values(acceptedRisks.images).some(entry => entry.tool === tool);
   const [{ current, previous }, setValues] = useState(() => {
-    const defaults = presetValues(catalog, preset);
+    const defaults = presetValues(catalog, tool === 'prometheus' ? preset : 'full');
     return { current: defaults, previous: defaults };
   });
 
@@ -210,7 +211,7 @@ export function Builder({ tool, chartVersion, kubernetesVersion, preset }: {
             {manifest.key === renderKey && manifest.error && <p role="alert">{manifest.error}</p>}
             {rendered.map((section, index) => {
               const isSchema = section.name === 'CRD schemas';
-              const open = openSections[section.name] ?? index === 0;
+              const open = openSections[section.name] ?? (!isSchema && index === 0);
               return (
                 <details key={section.name} id={`component-${section.name}`} open={open}
                   onToggle={event => {

@@ -220,6 +220,24 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
         assert.match(yaml.text, /# argocd admin initial-password/);
       }
     }
+    assert.equal(await preset.inputValue(), 'minimal');
+    for (const name of ['minimal', 'recommended', 'full']) {
+      await preset.selectOption(name);
+      await formatControl.selectOption('manifests');
+      const schemas = page.locator('details[id="component-CRD schemas"]');
+      await schemas.locator('summary').waitFor();
+      assert.equal(await schemas.evaluate(section => section.open), false, name);
+      assert.equal(await schemas.locator('pre').count(), 0, name);
+      const { text } = await download('Download');
+      const workloads = text.split(/^---$/m).filter(doc => !/^kind: CustomResourceDefinition$/m.test(doc)).join('---');
+      if (name === 'minimal') assert.ok(workloads.trimEnd().split('\n').length <= 3600);
+      const deployments = workloads.split(/^---$/m).filter(doc => /^kind: Deployment$/m.test(doc));
+      for (const component of ['dex-server', 'notifications-controller']) {
+        assert.equal(deployments.some(doc => doc.includes('name: argo-cd-argocd-' + component)), name === 'full', component);
+      }
+      const applicationSet = deployments.find(doc => doc.includes('name: argo-cd-argocd-applicationset-controller'));
+      assert.match(applicationSet, new RegExp('^  replicas: ' + (name === 'minimal' ? 0 : 1) + '$', 'm'));
+    }
     await page.getByText('CRD schemas', { exact: true }).waitFor();
     assert.equal(await page.locator('details[id="component-CRD schemas"]').getAttribute('open'), null);
     assert.deepEqual(await exportActions.getByRole('button').allTextContents(), ['Copy', 'Download']);

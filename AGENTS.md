@@ -182,6 +182,8 @@ Dates refer to when the correction was made. The Decision Log records the result
 
 | 2026-11-13 | v0.2.0 was tagged before the final review was confirmed, so later Learning fixes missed that release. | The tag was cut before the review cycle was closed. | Only tag a release after Charan confirms the final review. |
 
+| 2026-11-13 | The CRD preview default relied on section order. | The first section opened automatically without explicitly excluding schemas. | Default CRDs to collapsed explicitly and verify each preset in Chromium. |
+
 ## Decision Log
 
 | Date | Decision | Replaces | Affects |
@@ -227,3 +229,4 @@ Dates refer to when the correction was made. The Decision Log records the result
 | 2026-11-12 | Release the three-step dashboard, presets, YAML comment modes, explained exports, and offline Helm bundle as v0.2.0. | v0.1.0 release | Release notes |
 | 2026-11-12 | Explain Prometheus scrape jobs, per-container probes and mounts, Recreate, ClusterRoleBinding subjects and roleRef, and ClusterIP access in Learning exports. Use singular wording for one replica and allow up to 700 lines for Minimal. | Resource-wide deduplication of probe and mount explanations and 650-line limit | Learning YAML, tests |
 | 2026-11-13 | Keep the ARM64 reloader safety note and scrape jobs explanation in Compact. Release these changes and the post-v0.2.0 Learning fixes as v0.2.1. | Compact omitted both notes | YAML exports, release |
+| 2026-11-13 | Default Argo CD to Minimal with Dex and notifications disabled and ApplicationSet scaled to zero. Recommended enables one ApplicationSet replica. Full uses the pinned chart defaults. Preserve the layout, start CRDs collapsed, and enforce a 3,600-line Minimal Learning budget excluding CRDs. | Argo CD offered Full only | Presets, YAML preview |

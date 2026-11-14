@@ -1,0 +1,226 @@
+name: Publish Docker release image
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing stable release tag (for example v0.3.0)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-image-${{ github.event.release.tag_name || inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+      image: ${{ steps.release.outputs.image }}
+    steps:
+      - name: Resolve the published release commit
+        id: release
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease \
+            --jq '(.isDraft or .isPrerelease) | not' | grep -qx true
+          sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq .sha)
+          [[ "$sha" =~ ^[a-f0-9]{40}$ ]]
+          printf 'tag=%s\nsha=%s\nimage=ghcr.io/%s\n' "$TAG" "$sha" "${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+            trivy_arch: 64bit
+            trivy_checksum: bc0fc726e017b8927a62b2d3531d7a84ee01769daf5c99ed866dced54089fdbf
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+            trivy_arch: ARM64
+            trivy_checksum: ab9d51f86e6a5fb936f605faff6b593ac51bc378fff4d3e8b9d58358b9c367c3
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    permissions:
+      contents: read
+      packages: write
+    env:
+      ARCH: ${{ matrix.architecture }}
+      IMAGE: ${{ needs.release.outputs.image }}
+      VERSION: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+          persist-credentials: false
+      - name: Build on the target architecture
+        run: |
+          docker build --platform "linux/$ARCH" -t dashboard:release \
+            --label "org.opencontainers.image.source=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            --label "org.opencontainers.image.revision=$(git rev-parse HEAD)" \
+            --label "org.opencontainers.image.version=$VERSION" .
+          test "$(docker image inspect dashboard:release --format '{{.Architecture}}')" = "$ARCH"
+      - name: Test the built dashboard and offline validators
+        run: |
+          docker run -d --name dashboard --read-only --tmpfs /tmp:mode=1777 --cap-drop ALL \
+            --security-opt no-new-privileges:true -p 127.0.0.1:8080:8080 dashboard:release
+          python3 tests/check-docker-release.py
+      - name: Scan the built runtime
+        env:
+          TRIVY_ARCH: ${{ matrix.trivy_arch }}
+          TRIVY_CHECKSUM: ${{ matrix.trivy_checksum }}
+        run: |
+          cd "$RUNNER_TEMP"
+          archive="trivy_0.76.2_Linux-$TRIVY_ARCH.tar.gz"
+          curl --fail --silent --show-error --location --remote-name "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/$archive"
+          printf '%s  %s\n' "$TRIVY_CHECKSUM" "$archive" | sha256sum --check --strict
+          tar -xzf "$archive" trivy
+          ./trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress dashboard:release
+      - name: Push the verified architecture image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          candidate="$IMAGE:build-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$ARCH"
+          docker tag dashboard:release "$candidate"
+          docker push "$candidate"
+          digest_ref=$(docker image inspect "$candidate" | jq -er --arg image "$IMAGE" '.[0].RepoDigests[] | select(startswith($image + "@sha256:"))')
+          printf '%s\n' "$digest_ref" > "$ARCH.txt"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: image-digest-${{ matrix.architecture }}
+          path: ${{ matrix.architecture }}.txt
+          if-no-files-found: error
+      - name: Stop the build smoke test
+        if: always()
+        run: docker rm -f dashboard || true
+
+  publish:
+    needs: [release, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    env:
+      IMAGE: ${{ needs.release.outputs.image }}
+      VERSION: ${{ needs.release.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: image-digest-*
+          merge-multiple: true
+      - name: Publish the multi-architecture release tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create -t "$IMAGE:$VERSION" "$(cat amd64.txt)" "$(cat arm64.txt)"
+          docker buildx imagetools inspect "$IMAGE:$VERSION" --raw |
+            jq -e '[.manifests[].platform | select(.os == "linux") | .architecture] | sort == ["amd64", "arm64"]'
+          printf 'Published `%s:%s`. New GHCR packages start private. Check [package settings](%s/users/%s/packages/container/%s/settings) before the anonymous pull jobs.\n' \
+            "$IMAGE" "$VERSION" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY_OWNER" "${IMAGE##*/}" >> "$GITHUB_STEP_SUMMARY"
+      - name: Generate the release Compose file
+        run: |
+          mkdir -p release
+          KCB_IMAGE="$IMAGE:$VERSION" docker compose -p kcb config > release/compose.yaml
+          test "$(docker compose -f release/compose.yaml config --images)" = "$IMAGE:$VERSION"
+          docker compose -f release/compose.yaml config --format json |
+            jq -e '.services.dashboard | has("build") | not'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-compose
+          path: release/compose.yaml
+          if-no-files-found: error
+
+  cold-start:
+    needs: [release, publish]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: amd64
+            runner: ubuntu-24.04
+          - architecture: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    permissions:
+      packages: read
+    env:
+      IMAGE: ${{ needs.release.outputs.image }}:${{ needs.release.outputs.tag }}
+      ARCH: ${{ matrix.architecture }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-compose
+      - name: Use a clean Docker CLI configuration
+        run: echo "DOCKER_CONFIG=$RUNNER_TEMP/clean-docker" >> "$GITHUB_ENV"
+      - name: Time first launch on an empty image cache
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$DOCKER_CONFIG"
+          if docker image inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "The image cache must be empty for this measurement." >&2
+            exit 1
+          fi
+          anonymous=true
+          start=$(date +%s.%N)
+          if ! docker compose up -d; then
+            anonymous=false
+            printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+            start=$(date +%s.%N)
+            docker compose up -d
+          fi
+          for attempt in {1..60}; do
+            if curl --fail --silent --max-time 2 http://127.0.0.1:8080/ >/dev/null; then
+              test "$(docker image inspect "$IMAGE" --format '{{.Architecture}}')" = "$ARCH"
+              seconds=$(awk -v start="$start" -v end="$(date +%s.%N)" 'BEGIN {printf "%.2f", end - start}')
+              printf 'Linux %s cold start: %s seconds (anonymous pull: %s).\n' "$ARCH" "$seconds" "$anonymous" | tee -a "$GITHUB_STEP_SUMMARY"
+              if [[ "$anonymous" == false ]]; then
+                package=${IMAGE%:*}
+                printf '::error::Anonymous startup failed. Set package visibility to public at %s/users/%s/packages/container/%s/settings and rerun the failed jobs.\n' \
+                  "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY_OWNER" "${package##*/}"
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 1
+          done
+          docker compose logs --no-color
+          exit 1
+      - name: Stop the dashboard
+        if: always()
+        run: docker compose down
+
+  attach-compose:
+    needs: [release, cold-start]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-compose
+      - name: Attach the verified startup file to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.release.outputs.tag }}
+        run: gh release upload "$VERSION" compose.yaml --clobber --repo "$GITHUB_REPOSITORY"

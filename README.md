@@ -2,14 +2,29 @@
 
 [![CI](https://github.com/cavula/Kubernetes-config-builder/actions/workflows/ci.yml/badge.svg)](https://github.com/cavula/Kubernetes-config-builder/actions/workflows/ci.yml)
 
-A local dashboard for building and learning Kubernetes configurations. Choose K3s 1.35, 1.36, or 1.37 and configure one tool at a time. The app uses Prometheus chart 29.45.1 and Argo CD chart 10.17.1.
+Build and learn Kubernetes configurations with short templates for tools you already use. The dashboard supports K3s 1.35, 1.36, and 1.37.
 
-**Use the tool** opens the Argo CD Application, AppProject, and ApplicationSet templates, plus standalone Prometheus Service annotations, a custom scrape job, and an alert rule. Choose a template, fill in its settings, and copy or download the YAML. Learning mode explains each YAML line, and validation checks the pinned Argo CD CRD schemas, the Kubernetes Service schema, or the rendered Prometheus configuration with promtool. Choose **Install the tool** for the existing Helm and YAML installation workflow.
+## Use the tool
+
+**Use the tool** is the default view. Choose a template, fill in its example-backed fields, then copy or download the YAML.
+
+| Tool | Templates |
+| --- | --- |
+| Argo CD | Application, AppProject, ApplicationSet |
+| Standalone Prometheus | Annotated metrics Service, custom scrape job, alert rule |
+
+Learning mode explains every YAML line. Validation uses the Argo CD CRD schemas from chart 10.17.1, the Kubernetes Service schema, or `promtool` for configuration rendered by Prometheus chart 29.45.1.
+
+### Apply the generated files
+
+For Argo CD, apply the generated manifest to a cluster where Argo CD is installed. For example, run `kubectl apply -f application.yaml`. To use ApplicationSet with the installation builder, choose **Full chart defaults** so the controller is running.
+
+For standalone Prometheus, apply the annotated Service with kubectl. For a custom scrape job or alert rule, follow the pinned Helm upgrade command at the top of the values download. Merge existing alert groups into the alert values file before upgrading.
 
 ## Run with Docker
 
 1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with Compose.
-2. Download **Source code (zip)** from the [v0.1.0 release](https://github.com/cavula/Kubernetes-config-builder/releases/tag/v0.1.0), extract it, and open a terminal in the extracted folder.
+2. Download **Source code (zip)** from the [v0.3.0 release](https://github.com/cavula/Kubernetes-config-builder/releases/tag/v0.3.0), extract it, and open a terminal in the extracted folder.
 3. Run:
 
    ```sh
@@ -48,15 +63,9 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) or the URL printed by Vite. The renderer listens on loopback port 8080.
 
-## Apply a usage template
+## Install the tool
 
-Download the usage YAML and apply it to a cluster where Argo CD is installed. For example, run `kubectl apply -f application.yaml`. To use ApplicationSet with the installation builder, choose **Full chart defaults** so the controller is running.
-
-For standalone Prometheus, apply the annotated Service with kubectl. For a custom scrape job or alert rule, follow the pinned Helm upgrade command at the top of the values download. Merge existing alert groups into the alert values file before upgrading.
-
-## Apply an installation export
-
-In **Deploy**, choose **Helm chart + values** and click **Download Helm bundle**. Unzip the bundle and run the install command in its README. The ZIP includes the verified pinned chart and its dependencies, so Helm needs no chart repository. The cluster still needs access to the container images or must already have them. **Copy values** copies the commented values file.
+Switch to **Install the tool** to generate Helm or Kubernetes installation files. In **Deploy**, choose **Helm chart + values** and click **Download Helm bundle**. Unzip the bundle and run the install command in its README. The ZIP includes the verified pinned chart and its dependencies, so Helm needs no chart repository. The cluster still needs access to the container images or must already have them. **Copy values** copies the commented values file.
 
 Choose **YAML manifest** to copy or download the same explained Kubernetes YAML. The file begins with the apply command and after-install steps. Learning adds short explanations for key fields. Choose Compact for component and purpose headers with deployment instructions. Click a component name to open its preview. The Argo CD manifest includes its CRDs, namespace, and Redis initialization Job.
 

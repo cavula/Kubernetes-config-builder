@@ -23,7 +23,7 @@ For standalone Prometheus, apply the annotated Service with kubectl. For a custo
 
 ## Start with Docker
 
-With Docker Desktop or Docker Engine with Compose running, download **compose.yaml** from the [v0.3.0 release](https://github.com/cavula/Kubernetes-config-builder/releases/tag/v0.3.0) and run this in the download folder.
+With Docker Desktop or Docker Engine with Compose running, download **compose.yaml** from the [v0.3.1 release](https://github.com/cavula/Kubernetes-config-builder/releases/tag/v0.3.1) and run this in the download folder.
 
 ```sh
 docker compose up -d

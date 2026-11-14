@@ -42,3 +42,5 @@ On Kubernetes 1.37, Learning YAML including the header and excluding CRD documen
 Argo CD now offers Minimal and Full chart defaults. A zero-replica ApplicationSet Deployment explains why the pinned chart still renders it. The Minimal limit stays at 3,600 lines.
 
 This spec covers the secondary **Install the tool** workflow. See [Usage templates](usage-templates.md) for the primary product direction.
+
+In the Argo CD YAML preview, long container environment lists start folded within the editor. Keep a plain comment above each folded list explaining that the settings configure the container and that its references to `argocd-cmd-params-cm` are optional. A list can also contain settings supplied by other sources. Copy and download retain the complete generated manifest.

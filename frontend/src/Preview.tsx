@@ -4,7 +4,7 @@ import EditorWorker from 'monaco-editor/editor/editor.worker.js?worker';
 
 self.MonacoEnvironment = { getWorker: () => new EditorWorker() };
 
-type Content = { text: string; notes: Map<number, string> };
+type Content = { text: string; notes: Map<number, string>; folds?: LineRange[] };
 export type LineRange = { start: number; end: number };
 
 function updateModel(model: monaco.editor.ITextModel, text: string) {
@@ -43,6 +43,7 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
   const container = useRef<HTMLDivElement>(null);
   const models = useRef<{ original: monaco.editor.ITextModel; modified: monaco.editor.ITextModel }>(null);
   const editorRef = useRef<monaco.editor.IStandaloneDiffEditor>(null);
+  const foldingRanges = useRef(current.folds);
   const hoverNotes = useRef({ current: current.notes, previous: previous.notes, explainField });
 
   useEffect(() => {
@@ -56,6 +57,11 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
       diffWordWrap: 'on',
       stickyScroll: { enabled: true },
       accessibilityVerbose: true,
+    });
+    const folding = foldingRanges.current && monaco.languages.registerFoldingRangeProvider('yaml', {
+      provideFoldingRanges(model) {
+        return model === modified ? foldingRanges.current : undefined;
+      },
     });
     const hover = monaco.languages.registerHoverProvider('yaml', {
       async provideHover(model, position, token) {
@@ -87,6 +93,7 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
     models.current = { original, modified };
     return () => {
       hover.dispose();
+      folding?.dispose();
       editor.dispose();
       original.dispose();
       modified.dispose();
@@ -97,6 +104,7 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
 
   useEffect(() => {
     hoverNotes.current = { current: current.notes, previous: previous.notes, explainField };
+    foldingRanges.current = current.folds;
     const { original, modified } = models.current!;
     updateModel(original, previous.text);
     updateModel(modified, current.text);
@@ -126,6 +134,15 @@ export function Preview({ current, previous, focusLine, focusRange, highlightRan
     }
     return () => decorations.clear();
   }, [current.text, previous.text, focusLine, focusRange, highlightRanges]);
+
+  useEffect(() => {
+    if (!current.folds?.length) return;
+    const modified = editorRef.current!.getModifiedEditor();
+    modified.updateOptions({ folding: true, showFoldingControls: 'always' });
+    void modified.getAction('editor.fold')?.run({
+      selectionLines: current.folds.map(({ start }) => start - 1),
+    });
+  }, [current.text, current.folds]);
 
   return <div className="preview" ref={container} />;
 }

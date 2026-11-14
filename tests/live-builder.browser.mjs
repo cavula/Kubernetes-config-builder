@@ -281,7 +281,18 @@ test('both tools update both preview formats, highlight edits, and explain YAML 
       await schemas.locator('summary').waitFor();
       assert.equal(await schemas.evaluate(section => section.open), false, name);
       assert.equal(await schemas.locator('pre').count(), 0, name);
+      await page.waitForFunction(() => {
+        const model = globalThis.testMonaco.getModels().at(-1);
+        const entries = model?.findMatches('Settings read from the argocd-cmd-params-cm ConfigMap are all optional.', false, false, true, null, false);
+        if (!entries || entries.length < 2) return false;
+        const editor = globalThis.testMonaco.getEditors().find(candidate => candidate.getModel() === model);
+        return editor && entries.every(({ range }) =>
+          editor.getTopForLineNumber(range.startLineNumber + 2) === editor.getTopForLineNumber(range.startLineNumber + 3));
+      });
       const { text } = await download('Download');
+      assert.match(text, /name: ARGOCD_SERVER_INSECURE/);
+      assert.match(text, /name: argocd-cmd-params-cm/);
+      assert.doesNotMatch(text, /Settings read from the argocd-cmd-params-cm ConfigMap are all optional/);
       const workloads = text.split(/^---$/m).filter(doc => !/^kind: CustomResourceDefinition$/m.test(doc)).join('---');
       if (name === 'minimal') assert.ok(workloads.trimEnd().split('\n').length <= 3600);
       const deployments = workloads.split(/^---$/m).filter(doc => /^kind: Deployment$/m.test(doc));

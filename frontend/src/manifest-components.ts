@@ -1,3 +1,4 @@
+import { argoEnvironmentPreview } from './argo-env-preview';
 import { manifestNotes } from './manifest-notes';
 
 export function manifestComponents(text: string, tool: string) {
@@ -15,6 +16,7 @@ export function manifestComponents(text: string, tool: string) {
   return Array.from(documents, ([name, parts]) => {
     const body = parts.join('');
     const text = name === main ? header + body : body;
-    return { name, text, lines: body.trimEnd().split('\n').length, notes: manifestNotes(text) };
+    const content = tool === 'argo-cd' && name !== 'CRD schemas' ? argoEnvironmentPreview(text) : { text, folds: undefined };
+    return { name, ...content, lines: body.trimEnd().split('\n').length, notes: manifestNotes(content.text) };
   }).sort((a, b) => Number(b.name === main) - Number(a.name === main));
 }

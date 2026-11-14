@@ -123,7 +123,13 @@ export function renderUsage(id: UsageTemplateId, values: UsageValues, learning: 
     write(indent, 'source:', 'Choose the Git content Argo CD will render.');
     write(indent + 2, `repoURL: ${quoted('repoURL')}`, 'Read manifests from this Git repository.');
     write(indent + 2, `targetRevision: ${quoted('targetRevision')}`, 'Select the Git branch, tag, or commit to read.');
-    write(indent + 2, `path: ${quoted('path')}`, 'Read manifests from this directory inside the repository.');
+    const guestbook = input.path === 'guestbook' &&
+      (input.repoURL === 'https://github.com/argoproj/argocd-example-apps.git' ||
+       input.repoURL === 'https://github.com/argoproj/argocd-example-apps');
+    const pathNote = 'Read manifests from this directory inside the repository.';
+    write(indent + 2, `path: ${quoted('path')}`, guestbook
+      ? pathNote + ' Guestbook’s AMD64-only image runs under AMD64 emulation on ARM64 hosts such as Apple Silicon Macs.'
+      : pathNote);
     write(indent, 'destination:', 'Set where Argo CD sends the manifests.');
     write(indent + 2, `server: ${quoted('destinationServer')}`, 'Select the target Kubernetes API server by its URL.');
     write(indent + 2, `namespace: ${quoted('destinationNamespace')}`, 'Use this namespace for resources that do not specify one.');

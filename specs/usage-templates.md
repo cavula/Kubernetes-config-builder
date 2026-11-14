@@ -14,6 +14,8 @@ The Application starts in manual sync. Automated sync, pruning, self-healing, an
 
 [Application spec](https://argo-cd.readthedocs.io/en/stable/user-guide/application-specification/) · [AppProjects](https://argo-cd.readthedocs.io/en/stable/user-guide/projects/) · [ApplicationSet list generator](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/Generators-List/)
 
+The official Guestbook example uses an AMD64-only image. On ARM64 hosts such as Apple Silicon Macs, it runs under AMD64 emulation. Show this note alongside the Guestbook path in Learning YAML.
+
 ## Standalone Prometheus
 
 See the [standalone Prometheus proposal](standalone-prometheus-usage.md) for the chart-compatible Service annotations, custom scrape job, and alert rule.

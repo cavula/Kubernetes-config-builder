@@ -126,13 +126,13 @@ jobs:
         with:
           persist-credentials: false
       - name: Build and start the Docker distribution
-        run: docker compose up -d --build
+        run: docker compose -f compose.yaml -f compose.build.yaml up -d --build
       - name: Check the UI and offline validation
         run: python3 tests/check-docker-release.py
       - name: Scan the packaged runtime
         shell: bash
         run: |
-          image=$(docker compose config --images)
+          image=$(docker compose -f compose.yaml -f compose.build.yaml config --images)
           cd "$RUNNER_TEMP"
           archive=trivy_0.76.2_Linux-64bit.tar.gz
           curl --fail --silent --show-error --location --remote-name "https://github.com/aquasecurity/trivy/releases/download/v0.76.2/$archive"
@@ -142,5 +142,5 @@ jobs:
       - name: Collect logs and stop the distribution
         if: always()
         run: |
-          docker compose logs --no-color
-          docker compose down
+          docker compose -f compose.yaml -f compose.build.yaml logs --no-color
+          docker compose -f compose.yaml -f compose.build.yaml down

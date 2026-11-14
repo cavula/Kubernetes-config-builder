@@ -21,19 +21,23 @@ For Argo CD, apply the generated manifest to a cluster where Argo CD is installe
 
 For standalone Prometheus, apply the annotated Service with kubectl. For a custom scrape job or alert rule, follow the pinned Helm upgrade command at the top of the values download. Merge existing alert groups into the alert values file before upgrading.
 
-## Run with Docker
+## Start with Docker
 
-1. Install and start [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Docker Engine with Compose.
-2. Download **Source code (zip)** from the [v0.3.0 release](https://github.com/cavula/Kubernetes-config-builder/releases/tag/v0.3.0), extract it, and open a terminal in the extracted folder.
-3. Run:
+With Docker Desktop or Docker Engine with Compose running, download **compose.yaml** from the [v0.3.0 release](https://github.com/cavula/Kubernetes-config-builder/releases/tag/v0.3.0) and run this in the download folder.
 
-   ```sh
-   docker compose up --build
-   ```
+```sh
+docker compose up -d
+```
 
-4. Open [http://localhost:8080](http://localhost:8080). Press **Ctrl+C** in the terminal to stop the dashboard.
+Open [localhost:8080](http://localhost:8080). Compose pulls the prebuilt image for your machine from GitHub Container Registry. The first run needs internet access to download the image. Run `docker compose down` from the same folder to stop the dashboard.
 
-The first build needs internet access. Docker verifies the pinned chart archives and Kubernetes schemas during the build and includes them in the resulting image. The dashboard runs locally without a Kubernetes cluster or developer tools.
+### Build locally with Docker
+
+From a repository checkout, use the build override to compile the dashboard and patched promtool locally. Docker verifies the pinned source archive, charts, and Kubernetes schemas during the build.
+
+```sh
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
+```
 
 ## Run from source for development
 

@@ -1,0 +1,5 @@
+services:
+  dashboard:
+    image: kcb-dashboard:local
+    pull_policy: build
+    build: .

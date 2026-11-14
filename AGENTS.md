@@ -188,6 +188,8 @@ Dates refer to when the correction was made. The Decision Log records the result
 
 | 2026-11-13 | We built installation manifests when Charan wanted templates for using the tools. | The product plan treated installation as the main task. | For every tool, agree on the usage templates first and lead with short, explained usage YAML. Keep installation secondary. |
 
+| 2026-11-13 | The first Docker build took over 47 minutes on Charan’s Mac. | First-run instructions compiled promtool locally and verification focused on CI rather than a tester’s cold start. | Test the first-run experience as a new user would. Time the documented command with a fresh cache and report the environment and time to readiness. |
+
 ## Decision Log
 
 | Date | Decision | Replaces | Affects |
@@ -242,3 +244,4 @@ Dates refer to when the correction was made. The Decision Log records the result
 | 2026-11-13 | Validate the standalone chart’s generated scrape configuration and alert rule file with promtool 3.16.0. Build it from verified upstream source with the project Go toolchain and patched x/net pin. | No native Prometheus validation | Backend, Docker, CI |
 | 2026-11-13 | Note in the Guestbook Learning example that its AMD64-only image runs under emulation on ARM64 hosts such as Apple Silicon Macs. | Architecture detail recorded only in test results | Argo CD usage templates |
 | 2026-11-13 | Charan confirmed the final review. Release the Argo CD and standalone Prometheus usage templates as v0.3.0, with Install the tool secondary and the README leading with usage. | v0.2.1 release | Release notes, README |
+| 2026-11-13 | Publish verified AMD64 and ARM64 images to GHCR for each release. Backfill v0.3.0, use pull-based Compose for testers, and keep an explicit source-build option. | Tester-side Docker compilation | Docker distribution, release CI, README |
